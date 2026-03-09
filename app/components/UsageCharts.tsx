@@ -1,20 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { EnergyData } from '../lib/types';
+import { EnergyData, Tariff } from '../lib/types';
 import {
   getDailyTotals, getWeeklyTotals, getMonthlyTotals,
   getHourlyAverage, getHalfHourlyForDay,
+  getRateInfoForTime, getTariffRatePeriods,
 } from '../lib/analytics';
-import { format, parseISO, isWeekend } from 'date-fns';
+import { format, parseISO, isWeekend, getDay } from 'date-fns';
 
 interface Props {
   data: EnergyData;
+  currentTariff: Tariff;
 }
 
 type View = 'daily' | 'weekly' | 'monthly' | 'hourly' | 'dayDetail';
@@ -27,7 +29,16 @@ const TABS: { key: View; label: string }[] = [
   { key: 'dayDetail', label: 'Day Detail' },
 ];
 
-export default function UsageCharts({ data }: Props) {
+interface DayDetailEntry {
+  time: string;
+  kwh: number;
+  rateLabel: string;
+  ratePerKwh: number;
+  cost: number;
+  color: string;
+}
+
+export default function UsageCharts({ data, currentTariff }: Props) {
   const [view, setView] = useState<View>('daily');
   const [selectedDay, setSelectedDay] = useState(data.days[data.days.length - 1]?.date || '');
   const [showTotal, setShowTotal] = useState(true);
@@ -38,6 +49,48 @@ export default function UsageCharts({ data }: Props) {
   const monthly = getMonthlyTotals(data);
   const hourly = getHourlyAverage(data);
   const dayDetail = data.days.find(d => d.date === selectedDay);
+
+  // Build day detail data with tariff-based coloring and cost
+  const dayDetailData = useMemo((): DayDetailEntry[] => {
+    if (!dayDetail) return [];
+    const date = parseISO(dayDetail.date);
+    const dayOfWeek = getDay(date);
+
+    return getHalfHourlyForDay(dayDetail).map(entry => {
+      const [h, m] = entry.time.split(':').map(Number);
+      const rateInfo = getRateInfoForTime(currentTariff, dayOfWeek, h, m);
+      const cost = entry.kwh * rateInfo.ratePerKwh; // in cents
+      return {
+        time: entry.time,
+        kwh: entry.kwh,
+        rateLabel: rateInfo.label,
+        ratePerKwh: rateInfo.ratePerKwh,
+        cost: Math.round(cost * 100) / 100,
+        color: rateInfo.color,
+      };
+    });
+  }, [dayDetail, currentTariff]);
+
+  // Get legend items from tariff rate periods
+  const ratePeriods = useMemo(() => getTariffRatePeriods(currentTariff), [currentTariff]);
+
+  // Custom tooltip for day detail
+  const DayDetailTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: DayDetailEntry }> }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const entry = payload[0].payload;
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">
+        <p className="font-medium text-gray-800">{entry.time}</p>
+        <p className="text-gray-600">{entry.kwh} kWh</p>
+        <p className="text-gray-600">
+          Rate: {entry.rateLabel} ({entry.ratePerKwh} c/kWh)
+        </p>
+        <p className="font-medium text-gray-800">
+          Cost: {(entry.cost / 100).toFixed(4)} €
+        </p>
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -176,46 +229,46 @@ export default function UsageCharts({ data }: Props) {
 
       {view === 'dayDetail' && (
         <div>
-          <div className="mb-4">
-            <label className="text-sm text-gray-500 mr-2">Select day:</label>
-            <select
-              value={selectedDay}
-              onChange={(e) => setSelectedDay(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-            >
-              {data.days.map(d => (
-                <option key={d.date} value={d.date}>
-                  {format(parseISO(d.date), 'EEEE, dd MMM yyyy')} — {d.totalKwh.toFixed(1)} kWh
-                </option>
-              ))}
-            </select>
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div>
+              <label className="text-sm text-gray-500 mr-2">Select day:</label>
+              <select
+                value={selectedDay}
+                onChange={(e) => setSelectedDay(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+              >
+                {data.days.map(d => (
+                  <option key={d.date} value={d.date}>
+                    {format(parseISO(d.date), 'EEEE, dd MMM yyyy')} — {d.totalKwh.toFixed(1)} kWh
+                  </option>
+                ))}
+              </select>
+            </div>
+            <span className="text-xs text-gray-400">Colors and costs reflect: <strong className="text-gray-600">{currentTariff.name}</strong></span>
           </div>
-          {dayDetail && (
+          {dayDetail && dayDetailData.length > 0 && (
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={getHalfHourlyForDay(dayDetail)} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <BarChart data={dayDetailData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="time" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11 }} label={{ value: 'kWh', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }} />
-                <Tooltip
-                  formatter={(value) => [`${value} kWh`, 'Usage']}
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                />
+                <Tooltip content={<DayDetailTooltip />} />
                 <Bar dataKey="kwh" radius={[3, 3, 0, 0]}>
-                  {getHalfHourlyForDay(dayDetail).map((entry, i) => {
-                    const hour = parseInt(entry.time.split(':')[0]);
-                    let color = '#3b82f6'; // day
-                    if (hour >= 23 || hour < 8) color = '#6366f1'; // night
-                    else if (hour >= 17) color = '#ef4444'; // peak
-                    return <Cell key={i} fill={color} />;
-                  })}
+                  {dayDetailData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           )}
-          <div className="flex gap-4 mt-2 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-indigo-500 inline-block" /> Night (23:00-08:00)</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-500 inline-block" /> Day (08:00-17:00)</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500 inline-block" /> Peak (17:00-23:00)</span>
+          {/* Dynamic legend from tariff rate periods */}
+          <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+            {ratePeriods.map(rp => (
+              <span key={rp.label} className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: rp.color }} />
+                {rp.label} ({rp.ratePerKwh} c/kWh)
+              </span>
+            ))}
           </div>
         </div>
       )}

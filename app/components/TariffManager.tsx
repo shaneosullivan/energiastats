@@ -10,6 +10,8 @@ import {
 
 interface Props {
   data: EnergyData;
+  currentTariff: Tariff;
+  onCurrentTariffChange: (tariff: Tariff) => void;
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -307,10 +309,10 @@ function TariffEditor({ tariff, onChange }: { tariff: Tariff; onChange: (t: Tari
   );
 }
 
-export default function TariffManager({ data }: Props) {
-  const [currentTariff, setCurrentTariff] = useState<Tariff>(DEFAULT_TARIFFS[0]);
+export default function TariffManager({ data, currentTariff, onCurrentTariffChange }: Props) {
+  const setCurrentTariff = onCurrentTariffChange;
   const [altTariff, setAltTariff] = useState<Tariff>(DEFAULT_TARIFFS[1]);
-  const [currentPreset, setCurrentPreset] = useState(DEFAULT_TARIFFS[0].id);
+  const [currentPreset, setCurrentPreset] = useState(currentTariff.id);
   const [altPreset, setAltPreset] = useState(DEFAULT_TARIFFS[1].id);
 
   const comparison = useMemo(() => compareTariffs(data, currentTariff, altTariff), [data, currentTariff, altTariff]);

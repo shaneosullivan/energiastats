@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { EnergyData } from '../lib/types';
+import { EnergyData, Tariff } from '../lib/types';
+import { DEFAULT_TARIFFS } from '../lib/analytics';
 import OverviewCards from './OverviewCards';
 import UsageCharts from './UsageCharts';
 import ComparisonView from './ComparisonView';
@@ -30,6 +31,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 
 export default function Dashboard({ data, fileName, onReset }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [currentTariff, setCurrentTariff] = useState<Tariff>(DEFAULT_TARIFFS[0]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -76,10 +78,10 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
             <InsightsPanel data={data} />
           </>
         )}
-        {activeTab === 'charts' && <UsageCharts data={data} />}
+        {activeTab === 'charts' && <UsageCharts data={data} currentTariff={currentTariff} />}
         {activeTab === 'compare' && <ComparisonView data={data} />}
-        {activeTab === 'heatmap' && <HeatmapView data={data} />}
-        {activeTab === 'tariffs' && <TariffManager data={data} />}
+        {activeTab === 'heatmap' && <HeatmapView data={data} currentTariff={currentTariff} />}
+        {activeTab === 'tariffs' && <TariffManager data={data} currentTariff={currentTariff} onCurrentTariffChange={setCurrentTariff} />}
         {activeTab === 'appliances' && <ApplianceProfiler data={data} />}
         {activeTab === 'insights' && <InsightsPanel data={data} />}
       </main>

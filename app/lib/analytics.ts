@@ -617,6 +617,80 @@ export function compareTariffs(
   };
 }
 
+// ─── Tariff rate lookup for UI coloring ───
+
+export interface RateInfo {
+  label: string;
+  ratePerKwh: number; // lowest tier rate in cents
+  color: string;
+}
+
+// Assign distinct colors to rate periods based on their index in the schedule
+const RATE_COLORS = ['#6366f1', '#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#8b5cf6', '#14b8a6'];
+
+/**
+ * Get rate period info for a given time slot and tariff, using the schedule for the given day of week.
+ * For tiered rates, uses the lowest (first tier) rate.
+ */
+export function getRateInfoForTime(tariff: Tariff, dayOfWeek: number, hour: number, minute: number): RateInfo {
+  const schedule = getScheduleForDay(tariff, dayOfWeek);
+  if (!schedule) return { label: 'Unknown', ratePerKwh: 0, color: '#9ca3af' };
+
+  const ratePeriod = getRatePeriodForTime(schedule, hour, minute);
+  if (!ratePeriod) return { label: 'Unknown', ratePerKwh: 0, color: '#9ca3af' };
+
+  // Use lowest tier rate for display
+  let effectiveRate = ratePeriod.ratePerKwh;
+  if (ratePeriod.tiers && ratePeriod.tiers.length > 0) {
+    effectiveRate = ratePeriod.tiers[0].ratePerKwh;
+  }
+
+  // Assign color based on the first occurrence of this label in the schedule,
+  // so that split periods with the same label (e.g. "Day" appearing before and after "EV") get the same color
+  const firstIndex = schedule.rates.findIndex(r => r.label === ratePeriod.label);
+  const color = RATE_COLORS[firstIndex % RATE_COLORS.length];
+
+  return { label: ratePeriod.label, ratePerKwh: effectiveRate, color };
+}
+
+/**
+ * Get all unique rate periods for a tariff (for legend display).
+ * Returns de-duplicated rate labels with their colors.
+ */
+export function getTariffRatePeriods(tariff: Tariff): { label: string; ratePerKwh: number; color: string }[] {
+  // Collect all schedules
+  const schedules: DaySchedule[] = [];
+  if (tariff.uniformSchedule) schedules.push(tariff.uniformSchedule);
+  if (tariff.weekdaySchedule) schedules.push(tariff.weekdaySchedule);
+  if (tariff.weekendSchedule) schedules.push(tariff.weekendSchedule);
+  if (tariff.customSchedules) {
+    for (const s of Object.values(tariff.customSchedules)) {
+      schedules.push(s);
+    }
+  }
+
+  const seen = new Set<string>();
+  const result: { label: string; ratePerKwh: number; color: string }[] = [];
+
+  for (const schedule of schedules) {
+    for (const rate of schedule.rates) {
+      if (seen.has(rate.label)) continue;
+      seen.add(rate.label);
+
+      let effectiveRate = rate.ratePerKwh;
+      if (rate.tiers && rate.tiers.length > 0) {
+        effectiveRate = rate.tiers[0].ratePerKwh;
+      }
+
+      // Use the index of the first occurrence of this label, matching getRateInfoForTime
+      const firstIndex = schedule.rates.findIndex(r => r.label === rate.label);
+      result.push({ label: rate.label, ratePerKwh: effectiveRate, color: RATE_COLORS[firstIndex % RATE_COLORS.length] });
+    }
+  }
+
+  return result;
+}
+
 // ─── Default tariffs ───
 
 export const DEFAULT_TARIFFS: Tariff[] = [

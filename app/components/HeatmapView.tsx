@@ -1,11 +1,24 @@
 'use client';
 
-import { useMemo } from 'react';
-import { EnergyData } from '../lib/types';
-import { format, parseISO } from 'date-fns';
+import { useMemo, useState, useCallback } from 'react';
+import { EnergyData, Tariff } from '../lib/types';
+import { getRateInfoForTime } from '../lib/analytics';
+import { format, parseISO, getDay } from 'date-fns';
 
 interface Props {
   data: EnergyData;
+  currentTariff: Tariff;
+}
+
+interface TooltipData {
+  date: string;
+  time: string;
+  kwh: number;
+  cost: number;
+  rateLabel: string;
+  ratePerKwh: number;
+  x: number;
+  y: number;
 }
 
 const TIME_SLOTS = [
@@ -27,7 +40,9 @@ function getColor(kwh: number, maxKwh: number): string {
   return '#1e3a5f';
 }
 
-export default function HeatmapView({ data }: Props) {
+export default function HeatmapView({ data, currentTariff }: Props) {
+  const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+
   const maxKwh = useMemo(() => {
     let max = 0;
     for (const day of data.days) {
@@ -38,15 +53,35 @@ export default function HeatmapView({ data }: Props) {
     return max;
   }, [data]);
 
-  // Show only every other time label for readability
-  const timeLabels = TIME_SLOTS.filter((_, i) => i % 4 === 0);
+  const handleCellEnter = useCallback((e: React.MouseEvent, date: string, time: string, kwh: number) => {
+    const parsed = parseISO(date);
+    const dayOfWeek = getDay(parsed);
+    const [h, m] = time.split(':').map(Number);
+    const rateInfo = getRateInfoForTime(currentTariff, dayOfWeek, h, m);
+    const cost = kwh * rateInfo.ratePerKwh; // cents
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const container = e.currentTarget.closest('.overflow-x-auto')!.getBoundingClientRect();
+    setTooltip({
+      date: format(parsed, 'EEE dd MMM yyyy'),
+      time,
+      kwh,
+      cost: Math.round(cost * 100) / 100,
+      rateLabel: rateInfo.label,
+      ratePerKwh: rateInfo.ratePerKwh,
+      x: rect.left - container.left + rect.width / 2,
+      y: rect.top - container.top,
+    });
+  }, [currentTariff]);
+
+  const handleCellLeave = useCallback(() => setTooltip(null), []);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-gray-800 mb-4">Usage Heatmap</h2>
       <p className="text-xs text-gray-400 mb-3">Each cell is a 30-minute slot. Darker = higher usage.</p>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto relative">
         <div className="min-w-[800px]">
           {/* Time header */}
           <div className="flex items-center mb-1">
@@ -77,7 +112,8 @@ export default function HeatmapView({ data }: Props) {
                     key={i}
                     className="flex-1 h-[18px] border-r border-b border-white/50"
                     style={{ backgroundColor: getColor(r.kwh, maxKwh), minWidth: 14 }}
-                    title={`${day.date} ${r.time}: ${r.kwh} kWh`}
+                    onMouseEnter={(e) => handleCellEnter(e, day.date, r.time, r.kwh)}
+                    onMouseLeave={handleCellLeave}
                   />
                 ))}
               </div>
@@ -87,6 +123,23 @@ export default function HeatmapView({ data }: Props) {
             </div>
           ))}
         </div>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="absolute z-10 pointer-events-none bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs -translate-x-1/2 -translate-y-full"
+            style={{ left: tooltip.x, top: tooltip.y - 4 }}
+          >
+            <p className="font-medium text-gray-800">{tooltip.date} — {tooltip.time}</p>
+            <p className="text-gray-600">{tooltip.kwh} kWh</p>
+            <p className="text-gray-600">
+              Rate: {tooltip.rateLabel} ({tooltip.ratePerKwh} c/kWh)
+            </p>
+            <p className="font-medium text-gray-800">
+              Cost: {(tooltip.cost / 100).toFixed(4)} €
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Legend */}
