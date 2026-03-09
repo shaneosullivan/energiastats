@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Image from 'next/image';
 
 interface FileUploadProps {
   onFileLoaded: (csvText: string, fileName: string) => void;
@@ -34,7 +35,8 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8 px-4">
-      <div className="text-center">
+      <div className="text-center flex flex-col items-center">
+        <Image src="/logo_500.png" alt="Energia Insights" width={120} height={120} className="mb-4" priority />
         <h1 className="text-4xl font-bold text-gray-900 mb-3">Energia Insights</h1>
         <p className="text-lg text-gray-500 max-w-lg">
           Upload your Energia electricity usage CSV to get detailed insights, comparisons, and cost analysis.
