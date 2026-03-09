@@ -1,19 +1,18 @@
 'use client';
 
 import { useMemo } from 'react';
-import { EnergyData } from '../lib/types';
-import { detectTrends, getTimeOfUseBreakdown } from '../lib/analytics';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { EnergyData, Tariff } from '../lib/types';
+import { detectTrends, getTariffTimeOfUseBreakdown } from '../lib/analytics';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface Props {
   data: EnergyData;
+  currentTariff: Tariff;
 }
 
-const TOU_COLORS = ['#6366f1', '#f59e0b', '#ef4444'];
-
-export default function InsightsPanel({ data }: Props) {
+export default function InsightsPanel({ data, currentTariff }: Props) {
   const insights = useMemo(() => detectTrends(data), [data]);
-  const tou = useMemo(() => getTimeOfUseBreakdown(data), [data]);
+  const tou = useMemo(() => getTariffTimeOfUseBreakdown(data, currentTariff), [data, currentTariff]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -32,23 +31,32 @@ export default function InsightsPanel({ data }: Props) {
 
         {/* Time-of-use pie */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Time-of-Use Split</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Usage by Tariff Period</h3>
+          <p className="text-[10px] text-gray-400 mb-3">{currentTariff.name}</p>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={tou} dataKey="kwh" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={45} paddingAngle={2}>
-                {tou.map((_, i) => (
-                  <Cell key={i} fill={TOU_COLORS[i]} />
+                {tou.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => `${value} kWh`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+              <Tooltip
+                formatter={(value, name) => {
+                  const entry = tou.find(t => t.name === name);
+                  const costStr = entry ? ` (€${entry.cost.toFixed(2)})` : '';
+                  return [`${value} kWh${costStr}`, name];
+                }}
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+              />
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1 mt-2">
-            {tou.map((t, i) => (
+            {tou.map((t) => (
               <div key={t.name} className="flex items-center gap-2 text-xs">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: TOU_COLORS[i] }} />
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color }} />
                 <span className="text-gray-600 flex-1">{t.name}</span>
-                <span className="font-medium text-gray-700">{t.percent}%</span>
+                <span className="text-gray-500">€{t.cost.toFixed(2)}</span>
+                <span className="font-medium text-gray-700 w-10 text-right">{t.percent}%</span>
               </div>
             ))}
           </div>

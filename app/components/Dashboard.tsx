@@ -75,7 +75,7 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
         {activeTab === 'overview' && (
           <>
             <OverviewCards data={data} />
-            <InsightsPanel data={data} />
+            <InsightsPanel data={data} currentTariff={currentTariff} />
           </>
         )}
         {activeTab === 'charts' && <UsageCharts data={data} currentTariff={currentTariff} />}
@@ -83,7 +83,7 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
         {activeTab === 'heatmap' && <HeatmapView data={data} currentTariff={currentTariff} />}
         {activeTab === 'tariffs' && <TariffManager data={data} currentTariff={currentTariff} onCurrentTariffChange={setCurrentTariff} />}
         {activeTab === 'appliances' && <ApplianceProfiler data={data} />}
-        {activeTab === 'insights' && <InsightsPanel data={data} />}
+        {activeTab === 'insights' && <InsightsPanel data={data} currentTariff={currentTariff} />}
       </main>
     </div>
   );

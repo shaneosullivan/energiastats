@@ -691,6 +691,37 @@ export function getTariffRatePeriods(tariff: Tariff): { label: string; ratePerKw
   return result;
 }
 
+/**
+ * Tariff-aware time-of-use breakdown: groups usage and cost by the tariff's rate periods.
+ */
+export function getTariffTimeOfUseBreakdown(data: EnergyData, tariff: Tariff) {
+  const buckets = new Map<string, { kwh: number; cost: number; color: string; ratePerKwh: number }>();
+
+  for (const day of data.days) {
+    const parsed = parseISO(day.date);
+    const dayOfWeek = getDay(parsed);
+    for (const reading of day.readings) {
+      const [h, m] = reading.time.split(':').map(Number);
+      const rateInfo = getRateInfoForTime(tariff, dayOfWeek, h, m);
+      const bucket = buckets.get(rateInfo.label) || { kwh: 0, cost: 0, color: rateInfo.color, ratePerKwh: rateInfo.ratePerKwh };
+      bucket.kwh += reading.kwh;
+      bucket.cost += reading.kwh * rateInfo.ratePerKwh; // cents
+      buckets.set(rateInfo.label, bucket);
+    }
+  }
+
+  const total = Array.from(buckets.values()).reduce((s, b) => s + b.kwh, 0);
+
+  return Array.from(buckets.entries()).map(([name, b]) => ({
+    name,
+    kwh: Math.round(b.kwh * 100) / 100,
+    cost: Math.round(b.cost) / 100, // euros
+    percent: total > 0 ? Math.round((b.kwh / total) * 1000) / 10 : 0,
+    color: b.color,
+    ratePerKwh: b.ratePerKwh,
+  }));
+}
+
 // ─── Default tariffs ───
 
 export const DEFAULT_TARIFFS: Tariff[] = [
