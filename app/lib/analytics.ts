@@ -971,18 +971,3 @@ export const DEFAULT_TARIFFS: Tariff[] = [
   },
 ];
 
-// ─── Heatmap data ───
-
-export function getHeatmapData(data: EnergyData) {
-  return data.days.map((day) => {
-    const row: Record<string, string | number> = {
-      date: day.date,
-      label: format(parseISO(day.date), "EEE dd MMM"),
-    };
-    for (const reading of day.readings) {
-      row[reading.time] = reading.kwh;
-    }
-    row["total"] = Math.round(day.totalKwh * 100) / 100;
-    return row;
-  });
-}

@@ -8,7 +8,6 @@ import UsageCharts from './UsageCharts';
 import ComparisonView from './ComparisonView';
 import HeatmapView from './HeatmapView';
 import TariffManager from './TariffManager';
-import ApplianceProfiler from './ApplianceProfiler';
 import InsightsPanel from './InsightsPanel';
 
 interface Props {
@@ -17,7 +16,7 @@ interface Props {
   onReset: () => void;
 }
 
-type Tab = 'overview' | 'charts' | 'compare' | 'heatmap' | 'tariffs' | 'appliances' | 'insights';
+type Tab = 'overview' | 'charts' | 'compare' | 'heatmap' | 'tariffs' | 'insights';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'overview', label: 'Overview', icon: '📊' },
@@ -25,7 +24,6 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'compare', label: 'Compare', icon: '⚖️' },
   { key: 'heatmap', label: 'Heatmap', icon: '🔥' },
   { key: 'tariffs', label: 'Tariffs', icon: '💰' },
-  { key: 'appliances', label: 'Appliances', icon: '🔌' },
   { key: 'insights', label: 'Insights', icon: '💡' },
 ];
 
@@ -95,7 +93,6 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
         {activeTab === 'compare' && <ComparisonView data={data} />}
         {activeTab === 'heatmap' && <HeatmapView data={data} currentTariff={currentTariff} />}
         {activeTab === 'tariffs' && <TariffManager data={data} currentTariff={currentTariff} onCurrentTariffChange={setCurrentTariff} />}
-        {activeTab === 'appliances' && <ApplianceProfiler data={data} />}
         {activeTab === 'insights' && <InsightsPanel data={data} currentTariff={currentTariff} />}
       </main>
     </div>
