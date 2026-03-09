@@ -726,11 +726,11 @@ export function getTariffTimeOfUseBreakdown(data: EnergyData, tariff: Tariff) {
 
 export const DEFAULT_TARIFFS: Tariff[] = [
   {
-    id: "energia-ev",
+    id: "energia-ev-smart-drive",
     name: "Energia EV Smart Drive",
     provider: "Energia",
-    standingCharge: 66, // cents per day (€0.66)
-    psoLevy: 2.39, // cents per day (€1.46/month ≈ €2.92/61 days)
+    standingCharge: 72.60, // €265.01/year
+    psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
       rates: [
@@ -739,7 +739,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 2,
           endMinute: 0,
-          ratePerKwh: 40.94,
+          ratePerKwh: 44.62,
           label: "Day",
         },
         {
@@ -747,11 +747,11 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 6,
           endMinute: 0,
-          ratePerKwh: 9.61,
+          ratePerKwh: 10.47,
           label: "EV",
           tiers: [
-            { unitLimit: 1000, ratePerKwh: 9.61, label: "EV" },
-            { unitLimit: null, ratePerKwh: 11.23, label: "EV High Usage" },
+            { unitLimit: 1000, ratePerKwh: 10.47, label: "EV" },
+            { unitLimit: null, ratePerKwh: 12.24, label: "EV High Usage" },
           ],
         },
         {
@@ -759,115 +759,18 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 23,
           endMinute: 59,
-          ratePerKwh: 40.94,
+          ratePerKwh: 44.62,
           label: "Day",
         },
       ],
     },
   },
   {
-    id: "energia-standard",
-    name: "Energia Standard",
+    id: "energia-smart-data",
+    name: "Energia Smart Data",
     provider: "Energia",
-    standingCharge: 27.39, // cents per day
-    psoLevy: 0,
-    scheduleType: "uniform",
-    uniformSchedule: {
-      rates: [
-        {
-          startHour: 0,
-          startMinute: 0,
-          endHour: 24,
-          endMinute: 0,
-          ratePerKwh: 24.69,
-          label: "Standard",
-        },
-      ],
-    },
-  },
-  {
-    id: "energia-night-saver",
-    name: "Energia Night Saver",
-    provider: "Energia",
-    standingCharge: 29.16, // cents per day
-    psoLevy: 0,
-    scheduleType: "uniform",
-    uniformSchedule: {
-      rates: [
-        {
-          startHour: 8,
-          startMinute: 0,
-          endHour: 23,
-          endMinute: 0,
-          ratePerKwh: 28.35,
-          label: "Day",
-        },
-        {
-          startHour: 23,
-          startMinute: 0,
-          endHour: 8,
-          endMinute: 0,
-          ratePerKwh: 14.1,
-          label: "Night",
-        },
-      ],
-    },
-  },
-  {
-    id: "bord-gais-free-saturday",
-    name: "Bord Gáis Free Saturday",
-    provider: "Bord Gáis Energy",
-    standingCharge: 31.58,
-    psoLevy: 0,
-    scheduleType: "weekday_weekend",
-    weekdaySchedule: {
-      rates: [
-        {
-          startHour: 8,
-          startMinute: 0,
-          endHour: 23,
-          endMinute: 0,
-          ratePerKwh: 27.54,
-          label: "Day",
-        },
-        {
-          startHour: 23,
-          startMinute: 0,
-          endHour: 8,
-          endMinute: 0,
-          ratePerKwh: 15.22,
-          label: "Night",
-        },
-      ],
-    },
-    weekendSchedule: {
-      rates: [
-        {
-          startHour: 8,
-          startMinute: 0,
-          endHour: 23,
-          endMinute: 0,
-          ratePerKwh: 27.54,
-          label: "Day",
-        },
-        {
-          startHour: 23,
-          startMinute: 0,
-          endHour: 8,
-          endMinute: 0,
-          ratePerKwh: 15.22,
-          label: "Night",
-        },
-      ],
-    },
-    freeDay: { enabled: true, dayOfWeek: 6 }, // Saturday
-  },
-  {
-    id: "electric-ireland-peak-off",
-    name: "Electric Ireland Peak/Off-Peak",
-    provider: "Electric Ireland",
-    standingCharge: 26.87,
-    psoLevy: 0,
+    standingCharge: 72.60, // €265.01/year
+    psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
       rates: [
@@ -876,7 +779,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 17,
           endMinute: 0,
-          ratePerKwh: 22.85,
+          ratePerKwh: 42.13,
           label: "Day",
         },
         {
@@ -884,7 +787,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 19,
           endMinute: 0,
-          ratePerKwh: 32.45,
+          ratePerKwh: 47.31,
           label: "Peak",
         },
         {
@@ -892,35 +795,55 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 23,
           endMinute: 0,
-          ratePerKwh: 22.85,
-          label: "Evening",
+          ratePerKwh: 42.13,
+          label: "Day",
         },
         {
           startHour: 23,
           startMinute: 0,
           endHour: 8,
           endMinute: 0,
-          ratePerKwh: 13.5,
+          ratePerKwh: 23.16,
           label: "Night",
         },
       ],
     },
   },
   {
-    id: "sse-free-sunday",
-    name: "SSE Airtricity Free Sundays",
-    provider: "SSE Airtricity",
-    standingCharge: 30.12,
-    psoLevy: 0,
-    scheduleType: "weekday_weekend",
-    weekdaySchedule: {
+    id: "energia-smart-24-hour",
+    name: "Energia Smart 24 Hour",
+    provider: "Energia",
+    standingCharge: 72.60, // €265.01/year
+    psoLevy: 5.23, // €19.10/year
+    scheduleType: "uniform",
+    uniformSchedule: {
+      rates: [
+        {
+          startHour: 0,
+          startMinute: 0,
+          endHour: 24,
+          endMinute: 0,
+          ratePerKwh: 40.14,
+          label: "Standard",
+        },
+      ],
+    },
+  },
+  {
+    id: "energia-smart-day-night",
+    name: "Energia Smart Day Night",
+    provider: "Energia",
+    standingCharge: 72.60, // €265.01/year
+    psoLevy: 5.23, // €19.10/year
+    scheduleType: "uniform",
+    uniformSchedule: {
       rates: [
         {
           startHour: 8,
           startMinute: 0,
           endHour: 23,
           endMinute: 0,
-          ratePerKwh: 26.92,
+          ratePerKwh: 43.99,
           label: "Day",
         },
         {
@@ -928,19 +851,111 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 8,
           endMinute: 0,
-          ratePerKwh: 14.88,
+          ratePerKwh: 21.67,
           label: "Night",
         },
       ],
     },
-    weekendSchedule: {
+  },
+  {
+    id: "energia-smart-drive-plus",
+    name: "Energia Smart Drive Plus",
+    provider: "Energia",
+    standingCharge: 72.60, // €265.01/year
+    psoLevy: 5.23, // €19.10/year
+    scheduleType: "uniform",
+    uniformSchedule: {
+      rates: [
+        {
+          startHour: 0,
+          startMinute: 0,
+          endHour: 2,
+          endMinute: 0,
+          ratePerKwh: 26.65,
+          label: "Night",
+        },
+        {
+          startHour: 2,
+          startMinute: 0,
+          endHour: 6,
+          endMinute: 0,
+          ratePerKwh: 12.26,
+          label: "EV Charge",
+        },
+        {
+          startHour: 6,
+          startMinute: 0,
+          endHour: 8,
+          endMinute: 0,
+          ratePerKwh: 26.65,
+          label: "Night",
+        },
+        {
+          startHour: 8,
+          startMinute: 0,
+          endHour: 17,
+          endMinute: 0,
+          ratePerKwh: 43.26,
+          label: "Day",
+        },
+        {
+          startHour: 17,
+          startMinute: 0,
+          endHour: 19,
+          endMinute: 0,
+          ratePerKwh: 56.76,
+          label: "Peak",
+        },
+        {
+          startHour: 19,
+          startMinute: 0,
+          endHour: 23,
+          endMinute: 0,
+          ratePerKwh: 43.26,
+          label: "Day",
+        },
+        {
+          startHour: 23,
+          startMinute: 0,
+          endHour: 24,
+          endMinute: 0,
+          ratePerKwh: 26.65,
+          label: "Night",
+        },
+      ],
+    },
+  },
+  {
+    id: "energia-sst",
+    name: "Energia SST",
+    provider: "Energia",
+    standingCharge: 72.60, // €265.01/year
+    psoLevy: 5.23, // €19.10/year
+    scheduleType: "uniform",
+    uniformSchedule: {
       rates: [
         {
           startHour: 8,
           startMinute: 0,
+          endHour: 17,
+          endMinute: 0,
+          ratePerKwh: 42.13,
+          label: "Day",
+        },
+        {
+          startHour: 17,
+          startMinute: 0,
+          endHour: 19,
+          endMinute: 0,
+          ratePerKwh: 47.31,
+          label: "Peak",
+        },
+        {
+          startHour: 19,
+          startMinute: 0,
           endHour: 23,
           endMinute: 0,
-          ratePerKwh: 26.92,
+          ratePerKwh: 42.13,
           label: "Day",
         },
         {
@@ -948,12 +963,11 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 8,
           endMinute: 0,
-          ratePerKwh: 14.88,
+          ratePerKwh: 24.70,
           label: "Night",
         },
       ],
     },
-    freeDay: { enabled: true, dayOfWeek: 0 }, // Sunday
   },
 ];
 
