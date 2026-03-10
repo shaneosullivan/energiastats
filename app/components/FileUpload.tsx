@@ -15,12 +15,14 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
   const loadSampleData = useCallback(async () => {
     setLoadingSample(true);
     try {
-      const res = await fetch('/sampledata/EnergiaSample_April2024_Feb2026.csv');
+      const res = await fetch(
+        "/sampledata/EnergiaSample_April2024_Feb2026.csv",
+      );
       const text = await res.text();
-      setFileName('Sample Data (Apr 2024 – Feb 2026)');
-      onFileLoaded(text, 'Sample Data (Apr 2024 – Feb 2026)');
+      setFileName("Sample Data (Apr 2024 – Feb 2026)");
+      onFileLoaded(text, "Sample Data (Apr 2024 – Feb 2026)");
     } catch {
-      alert('Failed to load sample data');
+      alert("Failed to load sample data");
     } finally {
       setLoadingSample(false);
     }
@@ -100,7 +102,9 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
           input.accept = ".csv";
           input.onchange = (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
-            if (file) handleFile(file);
+            if (file) {
+              handleFile(file);
+            }
           };
           input.click();
         }}
@@ -141,9 +145,11 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
           disabled={loadingSample}
           className="text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg px-4 py-2 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loadingSample ? 'Loading...' : 'Try with Sample Data'}
+          {loadingSample ? "Loading..." : "Try with Sample Data"}
         </button>
-        <p className="text-xs text-gray-400">See the app in action with example Energia usage data</p>
+        <p className="text-xs text-gray-400">
+          See the app in action with example Energia usage data
+        </p>
       </div>
 
       <div className="text-sm text-gray-400 max-w-md text-center">

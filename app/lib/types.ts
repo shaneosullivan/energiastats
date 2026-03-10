@@ -41,7 +41,7 @@ export interface Tariff {
   standingCharge: number; // cents per day
   psoLevy: number; // cents per day
   // Flexible day scheduling
-  scheduleType: 'uniform' | 'weekday_weekend' | 'custom';
+  scheduleType: "uniform" | "weekday_weekend" | "custom";
   // For uniform: all days use the same schedule
   uniformSchedule?: DaySchedule;
   // For weekday_weekend: separate weekday and weekend schedules

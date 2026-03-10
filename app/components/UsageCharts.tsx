@@ -65,7 +65,9 @@ export default function UsageCharts({ data, currentTariff }: Props) {
 
   // Build day detail data with tariff-based coloring and cost
   const dayDetailData = useMemo((): DayDetailEntry[] => {
-    if (!dayDetail) return [];
+    if (!dayDetail) {
+      return [];
+    }
     const date = parseISO(dayDetail.date);
     const dayOfWeek = getDay(date);
 
@@ -98,7 +100,9 @@ export default function UsageCharts({ data, currentTariff }: Props) {
     active?: boolean;
     payload?: Array<{ payload: DayDetailEntry }>;
   }) => {
-    if (!active || !payload || payload.length === 0) return null;
+    if (!active || !payload || payload.length === 0) {
+      return null;
+    }
     const entry = payload[0].payload;
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">

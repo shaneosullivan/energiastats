@@ -14,11 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Energia Insights - Electricity Usage Dashboard",
-  description: "Analyse your Energia electricity usage with detailed insights, comparisons, tariff analysis and energy-saving suggestions.",
+  description:
+    "Analyse your Energia electricity usage with detailed insights, comparisons, tariff analysis and energy-saving suggestions.",
   icons: {
-    icon: [
-      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
-    ],
+    icon: [{ url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" }],
     apple: "/apple-touch-icon.png",
   },
   manifest: "/favicon/site.webmanifest",

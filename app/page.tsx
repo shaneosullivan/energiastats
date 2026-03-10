@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect } from 'react';
-import FileUpload from './components/FileUpload';
-import Dashboard from './components/Dashboard';
-import { EnergyData } from './lib/types';
-import { parseEnergiaCSV } from './lib/parseCSV';
+import { useState, useCallback, useEffect } from "react";
+import FileUpload from "./components/FileUpload";
+import Dashboard from "./components/Dashboard";
+import { EnergyData } from "./lib/types";
+import { parseEnergiaCSV } from "./lib/parseCSV";
 
-const STORAGE_KEY_CSV = 'energiainsights_csv';
-const STORAGE_KEY_FILENAME = 'energiainsights_filename';
+const STORAGE_KEY_CSV = "energiainsights_csv";
+const STORAGE_KEY_FILENAME = "energiainsights_filename";
 
 export default function Home() {
   const [data, setData] = useState<EnergyData | null>(null);
-  const [fileName, setFileName] = useState('');
+  const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -24,7 +24,7 @@ export default function Home() {
         const parsed = parseEnergiaCSV(savedCsv);
         if (parsed.days.length > 0) {
           setData(parsed);
-          setFileName(savedName || 'Saved data');
+          setFileName(savedName || "Saved data");
         }
       }
     } catch {
@@ -37,7 +37,9 @@ export default function Home() {
     try {
       const parsed = parseEnergiaCSV(csvText);
       if (parsed.days.length === 0) {
-        setError('No valid data found in the CSV file. Please check the file format.');
+        setError(
+          "No valid data found in the CSV file. Please check the file format.",
+        );
         return;
       }
       setData(parsed);
@@ -52,13 +54,15 @@ export default function Home() {
         // localStorage full or unavailable — not critical
       }
     } catch {
-      setError('Failed to parse the CSV file. Please make sure it\'s a valid Energia usage export.');
+      setError(
+        "Failed to parse the CSV file. Please make sure it's a valid Energia usage export.",
+      );
     }
   }, []);
 
   const handleReset = useCallback(() => {
     setData(null);
-    setFileName('');
+    setFileName("");
     setError(null);
     try {
       localStorage.removeItem(STORAGE_KEY_CSV);
@@ -69,7 +73,9 @@ export default function Home() {
   }, []);
 
   // Don't render until we've checked localStorage to avoid flash of upload screen
-  if (!loaded) return null;
+  if (!loaded) {
+    return null;
+  }
 
   if (data) {
     return <Dashboard data={data} fileName={fileName} onReset={handleReset} />;

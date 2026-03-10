@@ -1,10 +1,20 @@
-import { describe, it, expect } from 'bun:test';
-import { findCheapestPeriod, runSimulation } from '../app/lib/simulation';
-import { calculateTariffCost, DEFAULT_TARIFFS, getScheduleForDay } from '../app/lib/analytics';
+import { describe, it, expect } from "bun:test";
+import { findCheapestPeriod, runSimulation } from "../app/lib/simulation";
+import {
+  calculateTariffCost,
+  DEFAULT_TARIFFS,
+  getScheduleForDay,
+} from "../app/lib/analytics";
 import type {
-  Tariff, EnergyData, DayData, HalfHourReading,
-  BatterySettings, EVSettings, UserSettings, SimulationConfig,
-} from '../app/lib/types';
+  Tariff,
+  EnergyData,
+  DayData,
+  HalfHourReading,
+  BatterySettings,
+  EVSettings,
+  UserSettings,
+  SimulationConfig,
+} from "../app/lib/types";
 
 // ─── Test helpers ───
 
@@ -13,7 +23,10 @@ function makeUniformReadings(kwhPerSlot: number): HalfHourReading[] {
   const readings: HalfHourReading[] = [];
   for (let h = 0; h < 24; h++) {
     for (const m of [0, 30]) {
-      readings.push({ time: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`, kwh: kwhPerSlot });
+      readings.push({
+        time: `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
+        kwh: kwhPerSlot,
+      });
     }
   }
   return readings;
@@ -28,8 +41,8 @@ function makeDay(date: string, kwhPerSlot: number): DayData {
 /** Create EnergyData with multiple days of uniform readings. */
 function makeEnergyData(dates: string[], kwhPerSlot: number): EnergyData {
   return {
-    mprn: 'TEST-001',
-    days: dates.map(d => makeDay(d, kwhPerSlot)),
+    mprn: "TEST-001",
+    days: dates.map((d) => makeDay(d, kwhPerSlot)),
   };
 }
 
@@ -55,43 +68,51 @@ const NO_EV: EVSettings = {
 
 // Simple flat-rate tariff for predictable cost calculations
 const FLAT_TARIFF: Tariff = {
-  id: 'test-flat',
-  name: 'Test Flat',
-  provider: 'Test',
+  id: "test-flat",
+  name: "Test Flat",
+  provider: "Test",
   standingCharge: 0,
   psoLevy: 0,
-  scheduleType: 'uniform',
+  scheduleType: "uniform",
   uniformSchedule: {
-    rates: [{
-      startHour: 0, startMinute: 0,
-      endHour: 24, endMinute: 0,
-      ratePerKwh: 40,
-      label: 'Standard',
-    }],
+    rates: [
+      {
+        startHour: 0,
+        startMinute: 0,
+        endHour: 24,
+        endMinute: 0,
+        ratePerKwh: 40,
+        label: "Standard",
+      },
+    ],
   },
 };
 
 // Day/Night tariff: Night (23-8) = 20 c/kWh, Day (8-23) = 40 c/kWh
 const DAY_NIGHT_TARIFF: Tariff = {
-  id: 'test-day-night',
-  name: 'Test Day Night',
-  provider: 'Test',
+  id: "test-day-night",
+  name: "Test Day Night",
+  provider: "Test",
   standingCharge: 0,
   psoLevy: 0,
-  scheduleType: 'uniform',
+  scheduleType: "uniform",
   uniformSchedule: {
     rates: [
       {
-        startHour: 8, startMinute: 0,
-        endHour: 23, endMinute: 0,
+        startHour: 8,
+        startMinute: 0,
+        endHour: 23,
+        endMinute: 0,
         ratePerKwh: 40,
-        label: 'Day',
+        label: "Day",
       },
       {
-        startHour: 23, startMinute: 0,
-        endHour: 8, endMinute: 0,
+        startHour: 23,
+        startMinute: 0,
+        endHour: 8,
+        endMinute: 0,
         ratePerKwh: 20,
-        label: 'Night',
+        label: "Night",
       },
     ],
   },
@@ -99,31 +120,52 @@ const DAY_NIGHT_TARIFF: Tariff = {
 
 // 3-period tariff: Night (23-8)=15, Day (8-17)=40, Peak (17-23)=55
 const THREE_PERIOD_TARIFF: Tariff = {
-  id: 'test-three-period',
-  name: 'Test Three Period',
-  provider: 'Test',
+  id: "test-three-period",
+  name: "Test Three Period",
+  provider: "Test",
   standingCharge: 50, // 50c/day
-  psoLevy: 5,         // 5c/day
-  scheduleType: 'uniform',
+  psoLevy: 5, // 5c/day
+  scheduleType: "uniform",
   uniformSchedule: {
     rates: [
-      { startHour: 8, startMinute: 0, endHour: 17, endMinute: 0, ratePerKwh: 40, label: 'Day' },
-      { startHour: 17, startMinute: 0, endHour: 23, endMinute: 0, ratePerKwh: 55, label: 'Peak' },
-      { startHour: 23, startMinute: 0, endHour: 8, endMinute: 0, ratePerKwh: 15, label: 'Night' },
+      {
+        startHour: 8,
+        startMinute: 0,
+        endHour: 17,
+        endMinute: 0,
+        ratePerKwh: 40,
+        label: "Day",
+      },
+      {
+        startHour: 17,
+        startMinute: 0,
+        endHour: 23,
+        endMinute: 0,
+        ratePerKwh: 55,
+        label: "Peak",
+      },
+      {
+        startHour: 23,
+        startMinute: 0,
+        endHour: 8,
+        endMinute: 0,
+        ratePerKwh: 15,
+        label: "Night",
+      },
     ],
   },
 };
 
 // ─── findCheapestPeriod ───
 
-describe('findCheapestPeriod', () => {
-  it('returns the period with the lowest rate for a flat tariff', () => {
+describe("findCheapestPeriod", () => {
+  it("returns the period with the lowest rate for a flat tariff", () => {
     const result = findCheapestPeriod(FLAT_TARIFF, 1);
     expect(result.startHour).toBe(0);
     expect(result.endHour).toBe(24);
   });
 
-  it('returns the night period for a day/night tariff', () => {
+  it("returns the night period for a day/night tariff", () => {
     const result = findCheapestPeriod(DAY_NIGHT_TARIFF, 1); // Monday
     expect(result.startHour).toBe(23);
     expect(result.endHour).toBe(8);
@@ -131,43 +173,74 @@ describe('findCheapestPeriod', () => {
     expect(result.endMinute).toBe(0);
   });
 
-  it('returns the cheapest among three periods', () => {
+  it("returns the cheapest among three periods", () => {
     const result = findCheapestPeriod(THREE_PERIOD_TARIFF, 1);
     expect(result.startHour).toBe(23);
     expect(result.endHour).toBe(8);
   });
 
-  it('uses first tier rate when tiers are present', () => {
-    const evTariff = DEFAULT_TARIFFS.find(t => t.id === 'energia-ev-smart-drive')!;
+  it("uses first tier rate when tiers are present", () => {
+    const evTariff = DEFAULT_TARIFFS.find(
+      (t) => t.id === "energia-ev-smart-drive",
+    )!;
     const result = findCheapestPeriod(evTariff, 1);
     // EV period (2-6am, 10.47c) is cheapest
     expect(result.startHour).toBe(2);
     expect(result.endHour).toBe(6);
   });
 
-  it('falls back to 2-6am when schedule is empty', () => {
+  it("falls back to 2-6am when schedule is empty", () => {
     const emptyTariff: Tariff = {
-      id: 'empty', name: 'Empty', provider: 'Test',
-      standingCharge: 0, psoLevy: 0, scheduleType: 'uniform',
+      id: "empty",
+      name: "Empty",
+      provider: "Test",
+      standingCharge: 0,
+      psoLevy: 0,
+      scheduleType: "uniform",
     };
     const result = findCheapestPeriod(emptyTariff, 1);
     expect(result.startHour).toBe(2);
     expect(result.endHour).toBe(6);
   });
 
-  it('works with weekday/weekend schedule types', () => {
+  it("works with weekday/weekend schedule types", () => {
     const weekdayWeekendTariff: Tariff = {
-      id: 'test-wdwe', name: 'Test WD/WE', provider: 'Test',
-      standingCharge: 0, psoLevy: 0, scheduleType: 'weekday_weekend',
+      id: "test-wdwe",
+      name: "Test WD/WE",
+      provider: "Test",
+      standingCharge: 0,
+      psoLevy: 0,
+      scheduleType: "weekday_weekend",
       weekdaySchedule: {
         rates: [
-          { startHour: 0, startMinute: 0, endHour: 8, endMinute: 0, ratePerKwh: 10, label: 'Night' },
-          { startHour: 8, startMinute: 0, endHour: 24, endMinute: 0, ratePerKwh: 50, label: 'Day' },
+          {
+            startHour: 0,
+            startMinute: 0,
+            endHour: 8,
+            endMinute: 0,
+            ratePerKwh: 10,
+            label: "Night",
+          },
+          {
+            startHour: 8,
+            startMinute: 0,
+            endHour: 24,
+            endMinute: 0,
+            ratePerKwh: 50,
+            label: "Day",
+          },
         ],
       },
       weekendSchedule: {
         rates: [
-          { startHour: 0, startMinute: 0, endHour: 24, endMinute: 0, ratePerKwh: 5, label: 'Weekend' },
+          {
+            startHour: 0,
+            startMinute: 0,
+            endHour: 24,
+            endMinute: 0,
+            ratePerKwh: 5,
+            label: "Weekend",
+          },
         ],
       },
     };
@@ -185,16 +258,16 @@ describe('findCheapestPeriod', () => {
 
 // ─── runSimulation — no battery/EV (tariff-only comparison) ───
 
-describe('runSimulation — tariff-only (no battery/EV)', () => {
+describe("runSimulation — tariff-only (no battery/EV)", () => {
   const settings: UserSettings = {
     currentTariff: FLAT_TARIFF,
     battery: NO_BATTERY,
     ev: NO_EV,
   };
 
-  it('returns zero savings when current and sim tariffs are identical', () => {
+  it("returns zero savings when current and sim tariffs are identical", () => {
     // 2026-01-05 is a Monday
-    const data = makeEnergyData(['2026-01-05'], 0.5);
+    const data = makeEnergyData(["2026-01-05"], 0.5);
     const simConfig: SimulationConfig = {
       tariff: FLAT_TARIFF,
       battery: NO_BATTERY,
@@ -208,18 +281,22 @@ describe('runSimulation — tariff-only (no battery/EV)', () => {
     expect(result.simulatedDays.length).toBe(1);
   });
 
-  it('calculates savings when switching to a cheaper flat tariff', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.5); // 48 slots × 0.5 = 24 kWh/day
+  it("calculates savings when switching to a cheaper flat tariff", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5); // 48 slots × 0.5 = 24 kWh/day
     const cheaperTariff: Tariff = {
       ...FLAT_TARIFF,
-      id: 'test-cheaper',
+      id: "test-cheaper",
       uniformSchedule: {
-        rates: [{
-          startHour: 0, startMinute: 0,
-          endHour: 24, endMinute: 0,
-          ratePerKwh: 30, // 30 vs 40 c/kWh
-          label: 'Standard',
-        }],
+        rates: [
+          {
+            startHour: 0,
+            startMinute: 0,
+            endHour: 24,
+            endMinute: 0,
+            ratePerKwh: 30, // 30 vs 40 c/kWh
+            label: "Standard",
+          },
+        ],
       },
     };
 
@@ -231,22 +308,28 @@ describe('runSimulation — tariff-only (no battery/EV)', () => {
 
     // 24 kWh × (40 - 30) c/kWh = 240 cents savings
     expect(result.savingsCents).toBeGreaterThan(0);
-    expect(result.currentTotalCostCents).toBeGreaterThan(result.simulatedTotalCostCents);
+    expect(result.currentTotalCostCents).toBeGreaterThan(
+      result.simulatedTotalCostCents,
+    );
     expect(result.dailyCosts.length).toBe(1);
   });
 
-  it('reports negative savings when switching to a more expensive tariff', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.5);
+  it("reports negative savings when switching to a more expensive tariff", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
     const expensiveTariff: Tariff = {
       ...FLAT_TARIFF,
-      id: 'test-expensive',
+      id: "test-expensive",
       uniformSchedule: {
-        rates: [{
-          startHour: 0, startMinute: 0,
-          endHour: 24, endMinute: 0,
-          ratePerKwh: 60,
-          label: 'Standard',
-        }],
+        rates: [
+          {
+            startHour: 0,
+            startMinute: 0,
+            endHour: 24,
+            endMinute: 0,
+            ratePerKwh: 60,
+            label: "Standard",
+          },
+        ],
       },
     };
 
@@ -260,8 +343,8 @@ describe('runSimulation — tariff-only (no battery/EV)', () => {
     expect(result.savingsPercent).toBeLessThan(0);
   });
 
-  it('correctly handles standing charges and PSO levy', () => {
-    const data = makeEnergyData(['2026-01-05', '2026-01-06'], 0.5);
+  it("correctly handles standing charges and PSO levy", () => {
+    const data = makeEnergyData(["2026-01-05", "2026-01-06"], 0.5);
     const settingsWithCharges: UserSettings = {
       currentTariff: THREE_PERIOD_TARIFF,
       battery: NO_BATTERY,
@@ -279,18 +362,22 @@ describe('runSimulation — tariff-only (no battery/EV)', () => {
     expect(result.numDays).toBe(2);
   });
 
-  it('extrapolates yearly savings correctly', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.5);
+  it("extrapolates yearly savings correctly", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
     const cheaperTariff: Tariff = {
       ...FLAT_TARIFF,
-      id: 'test-cheaper',
+      id: "test-cheaper",
       uniformSchedule: {
-        rates: [{
-          startHour: 0, startMinute: 0,
-          endHour: 24, endMinute: 0,
-          ratePerKwh: 30,
-          label: 'Standard',
-        }],
+        rates: [
+          {
+            startHour: 0,
+            startMinute: 0,
+            endHour: 24,
+            endMinute: 0,
+            ratePerKwh: 30,
+            label: "Standard",
+          },
+        ],
       },
     };
 
@@ -305,8 +392,8 @@ describe('runSimulation — tariff-only (no battery/EV)', () => {
     expect(result.yearlySavingsCents).toBeCloseTo(expectedYearly, 2);
   });
 
-  it('preserves original data readings (no mutation)', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.5);
+  it("preserves original data readings (no mutation)", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
     const originalFirstReading = data.days[0].readings[0].kwh;
 
     runSimulation(data, settings, {
@@ -321,9 +408,9 @@ describe('runSimulation — tariff-only (no battery/EV)', () => {
 
 // ─── runSimulation — battery simulation ───
 
-describe('runSimulation — battery', () => {
+describe("runSimulation — battery", () => {
   // 2026-01-05 is a Monday
-  const data = makeEnergyData(['2026-01-05'], 0.5); // 24 kWh/day
+  const data = makeEnergyData(["2026-01-05"], 0.5); // 24 kWh/day
 
   const settingsNoBattery: UserSettings = {
     currentTariff: DAY_NIGHT_TARIFF,
@@ -331,7 +418,7 @@ describe('runSimulation — battery', () => {
     ev: NO_EV,
   };
 
-  it('adding a battery reduces total cost on a day/night tariff', () => {
+  it("adding a battery reduces total cost on a day/night tariff", () => {
     const simBattery: BatterySettings = {
       hasBattery: true,
       capacityKwh: 10,
@@ -351,11 +438,13 @@ describe('runSimulation — battery', () => {
 
     // Battery charges at night (20c) and discharges during day (40c)
     // Should reduce cost
-    expect(result.simulatedTotalCostCents).toBeLessThan(result.currentTotalCostCents);
+    expect(result.simulatedTotalCostCents).toBeLessThan(
+      result.currentTotalCostCents,
+    );
     expect(result.savingsCents).toBeGreaterThan(0);
   });
 
-  it('battery with auto-detect charges during the cheapest period', () => {
+  it("battery with auto-detect charges during the cheapest period", () => {
     const simBattery: BatterySettings = {
       hasBattery: true,
       capacityKwh: 5,
@@ -377,7 +466,7 @@ describe('runSimulation — battery', () => {
     expect(result.savingsCents).toBeGreaterThan(0);
   });
 
-  it('battery with 0 capacity has no effect', () => {
+  it("battery with 0 capacity has no effect", () => {
     const simBattery: BatterySettings = {
       hasBattery: true,
       capacityKwh: 0,
@@ -398,7 +487,7 @@ describe('runSimulation — battery', () => {
     expect(result.savingsCents).toBe(0);
   });
 
-  it('usable percent reduces effective battery capacity', () => {
+  it("usable percent reduces effective battery capacity", () => {
     const battery100: BatterySettings = {
       hasBattery: true,
       capacityKwh: 10,
@@ -432,7 +521,7 @@ describe('runSimulation — battery', () => {
     expect(result50.savingsCents).toBeGreaterThan(0);
   });
 
-  it('simulated readings never go negative', () => {
+  it("simulated readings never go negative", () => {
     const simBattery: BatterySettings = {
       hasBattery: true,
       capacityKwh: 100, // huge battery
@@ -457,7 +546,7 @@ describe('runSimulation — battery', () => {
     }
   });
 
-  it('removing a current battery and adding a different one works correctly', () => {
+  it("removing a current battery and adding a different one works correctly", () => {
     const currentBattery: BatterySettings = {
       hasBattery: true,
       capacityKwh: 5,
@@ -500,9 +589,9 @@ describe('runSimulation — battery', () => {
 
 // ─── runSimulation — EV simulation ───
 
-describe('runSimulation — EV', () => {
+describe("runSimulation — EV", () => {
   // 2026-01-05 is a Monday
-  const data = makeEnergyData(['2026-01-05'], 0.5);
+  const data = makeEnergyData(["2026-01-05"], 0.5);
 
   const settingsNoEV: UserSettings = {
     currentTariff: DAY_NIGHT_TARIFF,
@@ -510,26 +599,26 @@ describe('runSimulation — EV', () => {
     ev: NO_EV,
   };
 
-  it('moving EV charging from day to night saves money', () => {
+  it("moving EV charging from day to night saves money", () => {
     // Build data that already includes EV load during day (8-12am)
     // Base usage 0.5 kWh per slot, plus 3.7 kWh EV during 8 slots (8am-12pm)
     const evDay: DayData = {
-      date: '2026-01-05', // Monday
+      date: "2026-01-05", // Monday
       readings: [],
       totalKwh: 0,
     };
     for (let h = 0; h < 24; h++) {
       for (const m of [0, 30]) {
         const base = 0.5;
-        const evLoad = (h >= 8 && h < 12) ? 3.7 : 0; // 7.4 kW × 0.5h
+        const evLoad = h >= 8 && h < 12 ? 3.7 : 0; // 7.4 kW × 0.5h
         evDay.readings.push({
-          time: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
+          time: `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
           kwh: base + evLoad,
         });
       }
     }
     evDay.totalKwh = evDay.readings.reduce((s, r) => s + r.kwh, 0);
-    const evData: EnergyData = { mprn: 'TEST', days: [evDay] };
+    const evData: EnergyData = { mprn: "TEST", days: [evDay] };
 
     // Current: EV charges during day (8am-12pm = 8 slots)
     const currentEV: EVSettings = {
@@ -567,7 +656,7 @@ describe('runSimulation — EV', () => {
     expect(result.savingsCents).toBeGreaterThan(0);
   });
 
-  it('EV with 0 charging speed has no effect', () => {
+  it("EV with 0 charging speed has no effect", () => {
     const zeroEV: EVSettings = {
       hasEV: true,
       chargingStartHour: 2,
@@ -586,7 +675,7 @@ describe('runSimulation — EV', () => {
     expect(result.savingsCents).toBe(0);
   });
 
-  it('EV charging adds load to the simulated readings', () => {
+  it("EV charging adds load to the simulated readings", () => {
     const simEV: EVSettings = {
       hasEV: true,
       chargingStartHour: 2,
@@ -611,10 +700,10 @@ describe('runSimulation — EV', () => {
 
 // ─── runSimulation — battery + EV combined ───
 
-describe('runSimulation — battery + EV combined', () => {
-  const data = makeEnergyData(['2026-01-05', '2026-01-06'], 0.5);
+describe("runSimulation — battery + EV combined", () => {
+  const data = makeEnergyData(["2026-01-05", "2026-01-06"], 0.5);
 
-  it('battery + EV together produce different results than either alone', () => {
+  it("battery + EV together produce different results than either alone", () => {
     const settings: UserSettings = {
       currentTariff: DAY_NIGHT_TARIFF,
       battery: NO_BATTERY,
@@ -660,16 +749,26 @@ describe('runSimulation — battery + EV combined', () => {
     });
 
     // Combined should be different from each alone
-    expect(both.simulatedTotalCostCents).not.toBe(batteryOnly.simulatedTotalCostCents);
-    expect(both.simulatedTotalCostCents).not.toBe(evOnly.simulatedTotalCostCents);
+    expect(both.simulatedTotalCostCents).not.toBe(
+      batteryOnly.simulatedTotalCostCents,
+    );
+    expect(both.simulatedTotalCostCents).not.toBe(
+      evOnly.simulatedTotalCostCents,
+    );
   });
 });
 
 // ─── runSimulation — multi-day consistency ───
 
-describe('runSimulation — multi-day', () => {
-  it('daily costs array matches the number of input days', () => {
-    const dates = ['2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08', '2026-01-09'];
+describe("runSimulation — multi-day", () => {
+  it("daily costs array matches the number of input days", () => {
+    const dates = [
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07",
+      "2026-01-08",
+      "2026-01-09",
+    ];
     const data = makeEnergyData(dates, 0.3);
     const settings: UserSettings = {
       currentTariff: THREE_PERIOD_TARIFF,
@@ -688,8 +787,11 @@ describe('runSimulation — multi-day', () => {
     expect(result.numDays).toBe(5);
   });
 
-  it('total cost equals sum of daily costs', () => {
-    const data = makeEnergyData(['2026-01-05', '2026-01-06', '2026-01-07'], 0.4);
+  it("total cost equals sum of daily costs", () => {
+    const data = makeEnergyData(
+      ["2026-01-05", "2026-01-06", "2026-01-07"],
+      0.4,
+    );
     const settings: UserSettings = {
       currentTariff: THREE_PERIOD_TARIFF,
       battery: NO_BATTERY,
@@ -710,8 +812,8 @@ describe('runSimulation — multi-day', () => {
     expect(Math.abs(result.simulatedTotalCostCents - sumSim)).toBeLessThan(1);
   });
 
-  it('simulated readings maintain 48 slots per day', () => {
-    const data = makeEnergyData(['2026-01-05', '2026-01-06'], 0.5);
+  it("simulated readings maintain 48 slots per day", () => {
+    const data = makeEnergyData(["2026-01-05", "2026-01-06"], 0.5);
     const settings: UserSettings = {
       currentTariff: DAY_NIGHT_TARIFF,
       battery: NO_BATTERY,
@@ -720,7 +822,15 @@ describe('runSimulation — multi-day', () => {
 
     const result = runSimulation(data, settings, {
       tariff: DAY_NIGHT_TARIFF,
-      battery: { ...NO_BATTERY, hasBattery: true, capacityKwh: 10, usablePercent: 90, chargeStartHour: 0, chargeEndHour: 6, autoDetectCheapest: false },
+      battery: {
+        ...NO_BATTERY,
+        hasBattery: true,
+        capacityKwh: 10,
+        usablePercent: 90,
+        chargeStartHour: 0,
+        chargeEndHour: 6,
+        autoDetectCheapest: false,
+      },
       ev: NO_EV,
     });
 
@@ -732,26 +842,33 @@ describe('runSimulation — multi-day', () => {
 
 // ─── runSimulation — with real Energia tariffs ───
 
-describe('runSimulation — real Energia tariffs', () => {
-  const evTariff = DEFAULT_TARIFFS.find(t => t.id === 'energia-ev-smart-drive')!;
-  const flatTariff = DEFAULT_TARIFFS.find(t => t.id === 'energia-smart-24-hour')!;
+describe("runSimulation — real Energia tariffs", () => {
+  const evTariff = DEFAULT_TARIFFS.find(
+    (t) => t.id === "energia-ev-smart-drive",
+  )!;
+  const flatTariff = DEFAULT_TARIFFS.find(
+    (t) => t.id === "energia-smart-24-hour",
+  )!;
 
-  it('EV tariff is cheaper than flat tariff for night-heavy usage', () => {
+  it("EV tariff is cheaper than flat tariff for night-heavy usage", () => {
     // Create data with heavy night usage (high 2-6am usage)
     const day: DayData = {
-      date: '2026-01-05', // Monday
+      date: "2026-01-05", // Monday
       readings: [],
       totalKwh: 0,
     };
     for (let h = 0; h < 24; h++) {
       for (const m of [0, 30]) {
-        const kwh = (h >= 2 && h < 6) ? 2.0 : 0.2;
-        day.readings.push({ time: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`, kwh });
+        const kwh = h >= 2 && h < 6 ? 2.0 : 0.2;
+        day.readings.push({
+          time: `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
+          kwh,
+        });
       }
     }
     day.totalKwh = day.readings.reduce((s, r) => s + r.kwh, 0);
 
-    const data: EnergyData = { mprn: 'TEST', days: [day] };
+    const data: EnergyData = { mprn: "TEST", days: [day] };
 
     const evCost = calculateTariffCost(data, evTariff);
     const flatCost = calculateTariffCost(data, flatTariff);
@@ -760,8 +877,8 @@ describe('runSimulation — real Energia tariffs', () => {
     expect(evCost.totalCost).toBeLessThan(flatCost.totalCost);
   });
 
-  it('switching from flat to EV tariff with same data produces consistent simulation', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.5);
+  it("switching from flat to EV tariff with same data produces consistent simulation", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
     const settings: UserSettings = {
       currentTariff: flatTariff,
       battery: NO_BATTERY,
@@ -776,15 +893,15 @@ describe('runSimulation — real Energia tariffs', () => {
 
     expect(result.currentTotalCostCents).toBeGreaterThan(0);
     expect(result.simulatedTotalCostCents).toBeGreaterThan(0);
-    expect(typeof result.savingsPercent).toBe('number');
+    expect(typeof result.savingsPercent).toBe("number");
   });
 });
 
 // ─── Edge cases ───
 
-describe('runSimulation — edge cases', () => {
-  it('handles empty energy data', () => {
-    const data: EnergyData = { mprn: 'TEST', days: [] };
+describe("runSimulation — edge cases", () => {
+  it("handles empty energy data", () => {
+    const data: EnergyData = { mprn: "TEST", days: [] };
     const settings: UserSettings = {
       currentTariff: FLAT_TARIFF,
       battery: NO_BATTERY,
@@ -802,8 +919,8 @@ describe('runSimulation — edge cases', () => {
     expect(result.savingsCents).toBe(0);
   });
 
-  it('handles a day with zero usage', () => {
-    const data = makeEnergyData(['2026-01-05'], 0);
+  it("handles a day with zero usage", () => {
+    const data = makeEnergyData(["2026-01-05"], 0);
     const settings: UserSettings = {
       currentTariff: DAY_NIGHT_TARIFF,
       battery: NO_BATTERY,
@@ -812,7 +929,15 @@ describe('runSimulation — edge cases', () => {
 
     const result = runSimulation(data, settings, {
       tariff: DAY_NIGHT_TARIFF,
-      battery: { ...NO_BATTERY, hasBattery: true, capacityKwh: 10, usablePercent: 90, chargeStartHour: 23, chargeEndHour: 8, autoDetectCheapest: false },
+      battery: {
+        ...NO_BATTERY,
+        hasBattery: true,
+        capacityKwh: 10,
+        usablePercent: 90,
+        chargeStartHour: 23,
+        chargeEndHour: 8,
+        autoDetectCheapest: false,
+      },
       ev: NO_EV,
     });
 
@@ -824,8 +949,8 @@ describe('runSimulation — edge cases', () => {
     }
   });
 
-  it('handles very large battery relative to daily usage', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.1); // 4.8 kWh/day
+  it("handles very large battery relative to daily usage", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.1); // 4.8 kWh/day
     const settings: UserSettings = {
       currentTariff: DAY_NIGHT_TARIFF,
       battery: NO_BATTERY,
@@ -855,8 +980,8 @@ describe('runSimulation — edge cases', () => {
     }
   });
 
-  it('readings are rounded to 4 decimal places', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.3333);
+  it("readings are rounded to 4 decimal places", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.3333);
     const settings: UserSettings = {
       currentTariff: DAY_NIGHT_TARIFF,
       battery: NO_BATTERY,
@@ -865,13 +990,21 @@ describe('runSimulation — edge cases', () => {
 
     const result = runSimulation(data, settings, {
       tariff: DAY_NIGHT_TARIFF,
-      battery: { ...NO_BATTERY, hasBattery: true, capacityKwh: 5, usablePercent: 100, chargeStartHour: 23, chargeEndHour: 8, autoDetectCheapest: false },
+      battery: {
+        ...NO_BATTERY,
+        hasBattery: true,
+        capacityKwh: 5,
+        usablePercent: 100,
+        chargeStartHour: 23,
+        chargeEndHour: 8,
+        autoDetectCheapest: false,
+      },
       ev: NO_EV,
     });
 
     for (const day of result.simulatedDays) {
       for (const r of day.readings) {
-        const decimals = r.kwh.toString().split('.')[1]?.length ?? 0;
+        const decimals = r.kwh.toString().split(".")[1]?.length ?? 0;
         expect(decimals).toBeLessThanOrEqual(4);
       }
     }
@@ -880,8 +1013,8 @@ describe('runSimulation — edge cases', () => {
 
 // ─── getScheduleForDay — free day support ───
 
-describe('getScheduleForDay — free day', () => {
-  it('returns a free day schedule when freeDay is enabled for that day', () => {
+describe("getScheduleForDay — free day", () => {
+  it("returns a free day schedule when freeDay is enabled for that day", () => {
     const tariff: Tariff = {
       ...FLAT_TARIFF,
       freeDay: { enabled: true, dayOfWeek: 0 }, // Sunday
@@ -891,10 +1024,10 @@ describe('getScheduleForDay — free day', () => {
     expect(schedule).not.toBeNull();
     expect(schedule!.rates.length).toBe(1);
     expect(schedule!.rates[0].ratePerKwh).toBe(0);
-    expect(schedule!.rates[0].label).toBe('Free Day');
+    expect(schedule!.rates[0].label).toBe("Free Day");
   });
 
-  it('returns normal schedule for non-free days', () => {
+  it("returns normal schedule for non-free days", () => {
     const tariff: Tariff = {
       ...FLAT_TARIFF,
       freeDay: { enabled: true, dayOfWeek: 0 }, // Sunday
@@ -905,15 +1038,15 @@ describe('getScheduleForDay — free day', () => {
     expect(schedule!.rates[0].ratePerKwh).toBe(40); // normal rate
   });
 
-  it('free day simulation shows savings', () => {
+  it("free day simulation shows savings", () => {
     const tariffWithFreeDay: Tariff = {
       ...FLAT_TARIFF,
-      id: 'free-sunday',
+      id: "free-sunday",
       freeDay: { enabled: true, dayOfWeek: 0 }, // Sunday
     };
 
     // 2026-01-04 is a Sunday
-    const data = makeEnergyData(['2026-01-04'], 0.5);
+    const data = makeEnergyData(["2026-01-04"], 0.5);
     const settings: UserSettings = {
       currentTariff: FLAT_TARIFF,
       battery: NO_BATTERY,
@@ -928,20 +1061,22 @@ describe('getScheduleForDay — free day', () => {
 
     // Free day means simulated cost should be much lower
     expect(result.savingsCents).toBeGreaterThan(0);
-    expect(result.simulatedTotalCostCents).toBeLessThan(result.currentTotalCostCents);
+    expect(result.simulatedTotalCostCents).toBeLessThan(
+      result.currentTotalCostCents,
+    );
   });
 });
 
 // ─── calculateTariffCost (used by simulation) ───
 
-describe('calculateTariffCost', () => {
-  it('flat rate: cost = kWh × rate + standing + PSO', () => {
+describe("calculateTariffCost", () => {
+  it("flat rate: cost = kWh × rate + standing + PSO", () => {
     const tariff: Tariff = {
       ...FLAT_TARIFF,
       standingCharge: 100,
       psoLevy: 10,
     };
-    const data = makeEnergyData(['2026-01-05'], 0.5); // 24 kWh
+    const data = makeEnergyData(["2026-01-05"], 0.5); // 24 kWh
 
     const result = calculateTariffCost(data, tariff);
     // 24 × 40 + 100 + 10 = 960 + 110 = 1070
@@ -949,8 +1084,8 @@ describe('calculateTariffCost', () => {
     expect(result.dailyCosts.length).toBe(1);
   });
 
-  it('day/night tariff splits cost by time period', () => {
-    const data = makeEnergyData(['2026-01-05'], 0.5);
+  it("day/night tariff splits cost by time period", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
     const dayNightResult = calculateTariffCost(data, DAY_NIGHT_TARIFF);
     const flatResult = calculateTariffCost(data, FLAT_TARIFF);
 
@@ -961,32 +1096,36 @@ describe('calculateTariffCost', () => {
     expect(dayNightResult.totalCost).toBeLessThan(flatResult.totalCost);
   });
 
-  it('tiered pricing accumulates across days', () => {
+  it("tiered pricing accumulates across days", () => {
     const tieredTariff: Tariff = {
-      id: 'test-tiered',
-      name: 'Tiered',
-      provider: 'Test',
+      id: "test-tiered",
+      name: "Tiered",
+      provider: "Test",
       standingCharge: 0,
       psoLevy: 0,
-      scheduleType: 'uniform',
+      scheduleType: "uniform",
       uniformSchedule: {
-        rates: [{
-          startHour: 0, startMinute: 0,
-          endHour: 24, endMinute: 0,
-          ratePerKwh: 10, // base (overridden by tiers)
-          label: 'Standard',
-          tiers: [
-            { unitLimit: 10, ratePerKwh: 10, label: 'Tier 1' },
-            { unitLimit: null, ratePerKwh: 20, label: 'Tier 2' },
-          ],
-        }],
+        rates: [
+          {
+            startHour: 0,
+            startMinute: 0,
+            endHour: 24,
+            endMinute: 0,
+            ratePerKwh: 10, // base (overridden by tiers)
+            label: "Standard",
+            tiers: [
+              { unitLimit: 10, ratePerKwh: 10, label: "Tier 1" },
+              { unitLimit: null, ratePerKwh: 20, label: "Tier 2" },
+            ],
+          },
+        ],
       },
     };
 
     // 2 days × 24 kWh = 48 kWh total
     // First 10 kWh at 10c, remaining 38 kWh at 20c
     // = 100 + 760 = 860c
-    const data = makeEnergyData(['2026-01-05', '2026-01-06'], 0.5);
+    const data = makeEnergyData(["2026-01-05", "2026-01-06"], 0.5);
     const result = calculateTariffCost(data, tieredTariff);
 
     expect(result.totalCost).toBeCloseTo(860, 0);

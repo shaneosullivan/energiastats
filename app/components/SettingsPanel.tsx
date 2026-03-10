@@ -1,9 +1,14 @@
-'use client';
+"use client";
 
-import { Tariff, UserSettings, BatterySettings, EVSettings } from '../lib/types';
-import { DEFAULT_TARIFFS } from '../lib/analytics';
-import { TariffEditor } from './TariffManager';
-import { findCheapestPeriod } from '../lib/simulation';
+import {
+  Tariff,
+  UserSettings,
+  BatterySettings,
+  EVSettings,
+} from "../lib/types";
+import { DEFAULT_TARIFFS } from "../lib/analytics";
+import { TariffEditor } from "./TariffManager";
+import { findCheapestPeriod } from "../lib/simulation";
 
 interface Props {
   settings: UserSettings;
@@ -13,12 +18,14 @@ interface Props {
 export default function SettingsPanel({ settings, onSettingsChange }: Props) {
   const { currentTariff, battery, ev } = settings;
 
-  const setTariff = (t: Tariff) => onSettingsChange({ ...settings, currentTariff: t });
-  const setBattery = (b: BatterySettings) => onSettingsChange({ ...settings, battery: b });
+  const setTariff = (t: Tariff) =>
+    onSettingsChange({ ...settings, currentTariff: t });
+  const setBattery = (b: BatterySettings) =>
+    onSettingsChange({ ...settings, battery: b });
   const setEV = (e: EVSettings) => onSettingsChange({ ...settings, ev: e });
 
   const handlePresetChange = (presetId: string) => {
-    const found = DEFAULT_TARIFFS.find(t => t.id === presetId);
+    const found = DEFAULT_TARIFFS.find((t) => t.id === presetId);
     if (found) {
       setTariff(JSON.parse(JSON.stringify(found)));
     }
@@ -32,17 +39,25 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
       {/* Tariff section */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-800 mb-1">My Tariff</h2>
-        <p className="text-xs text-gray-400 mb-4">Select your current electricity tariff. All rates in cent/kWh, charges in cent/day.</p>
+        <p className="text-xs text-gray-400 mb-4">
+          Select your current electricity tariff. All rates in cent/kWh, charges
+          in cent/day.
+        </p>
 
         <div className="flex items-center gap-3 mb-4">
           <label className="text-sm text-gray-500">Preset:</label>
           <select
-            value={DEFAULT_TARIFFS.find(t => t.id === currentTariff.id)?.id || 'custom'}
+            value={
+              DEFAULT_TARIFFS.find((t) => t.id === currentTariff.id)?.id ||
+              "custom"
+            }
             onChange={(e) => handlePresetChange(e.target.value)}
             className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
           >
-            {DEFAULT_TARIFFS.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+            {DEFAULT_TARIFFS.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
             ))}
             <option value="custom">Custom</option>
           </select>
@@ -59,7 +74,9 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
             <input
               type="checkbox"
               checked={battery.hasBattery}
-              onChange={(e) => setBattery({ ...battery, hasBattery: e.target.checked })}
+              onChange={(e) =>
+                setBattery({ ...battery, hasBattery: e.target.checked })
+              }
               className="sr-only peer"
             />
             <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
@@ -70,22 +87,36 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-gray-500">Battery Capacity (kWh)</label>
+                <label className="text-xs text-gray-500">
+                  Battery Capacity (kWh)
+                </label>
                 <input
                   type="number"
                   value={battery.capacityKwh}
-                  onChange={(e) => setBattery({ ...battery, capacityKwh: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setBattery({
+                      ...battery,
+                      capacityKwh: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
                   min="0"
                   step="0.1"
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Usable Capacity: {battery.usablePercent}%</label>
+                <label className="text-xs text-gray-500">
+                  Usable Capacity: {battery.usablePercent}%
+                </label>
                 <input
                   type="range"
                   value={battery.usablePercent}
-                  onChange={(e) => setBattery({ ...battery, usablePercent: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setBattery({
+                      ...battery,
+                      usablePercent: parseInt(e.target.value),
+                    })
+                  }
                   className="w-full mt-1"
                   min="50"
                   max="100"
@@ -94,7 +125,11 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
                 <div className="flex justify-between text-[10px] text-gray-400">
                   <span>50%</span>
                   <span className="font-medium text-gray-600">
-                    {(battery.capacityKwh * battery.usablePercent / 100).toFixed(1)} kWh usable
+                    {(
+                      (battery.capacityKwh * battery.usablePercent) /
+                      100
+                    ).toFixed(1)}{" "}
+                    kWh usable
                   </span>
                   <span>100%</span>
                 </div>
@@ -108,7 +143,12 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
                   <input
                     type="checkbox"
                     checked={battery.autoDetectCheapest}
-                    onChange={(e) => setBattery({ ...battery, autoDetectCheapest: e.target.checked })}
+                    onChange={(e) =>
+                      setBattery({
+                        ...battery,
+                        autoDetectCheapest: e.target.checked,
+                      })
+                    }
                     className="rounded"
                   />
                   Auto-detect cheapest period
@@ -117,27 +157,74 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
 
               {battery.autoDetectCheapest ? (
                 <p className="text-xs text-blue-600 bg-blue-50 rounded-lg p-2">
-                  Will charge during the cheapest tariff period:
-                  {' '}{cheapest.startHour.toString().padStart(2, '0')}:{cheapest.startMinute.toString().padStart(2, '0')}
-                  {' '}&ndash;{' '}
-                  {cheapest.endHour.toString().padStart(2, '0')}:{cheapest.endMinute.toString().padStart(2, '0')}
+                  Will charge during the cheapest tariff period:{" "}
+                  {cheapest.startHour.toString().padStart(2, "0")}:
+                  {cheapest.startMinute.toString().padStart(2, "0")} &ndash;{" "}
+                  {cheapest.endHour.toString().padStart(2, "0")}:
+                  {cheapest.endMinute.toString().padStart(2, "0")}
                 </p>
               ) : (
                 <div className="flex items-center gap-2">
-                  <select value={battery.chargeStartHour} onChange={(e) => setBattery({ ...battery, chargeStartHour: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>)}
+                  <select
+                    value={battery.chargeStartHour}
+                    onChange={(e) =>
+                      setBattery({
+                        ...battery,
+                        chargeStartHour: parseInt(e.target.value),
+                      })
+                    }
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <option key={h} value={h}>
+                        {h.toString().padStart(2, "0")}
+                      </option>
+                    ))}
                   </select>
                   <span className="text-xs text-gray-400">:</span>
-                  <select value={battery.chargeStartMinute} onChange={(e) => setBattery({ ...battery, chargeStartMinute: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                    <option value={0}>00</option><option value={30}>30</option>
+                  <select
+                    value={battery.chargeStartMinute}
+                    onChange={(e) =>
+                      setBattery({
+                        ...battery,
+                        chargeStartMinute: parseInt(e.target.value),
+                      })
+                    }
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    <option value={0}>00</option>
+                    <option value={30}>30</option>
                   </select>
                   <span className="text-xs text-gray-400">to</span>
-                  <select value={battery.chargeEndHour} onChange={(e) => setBattery({ ...battery, chargeEndHour: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                    {Array.from({ length: 25 }, (_, h) => <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>)}
+                  <select
+                    value={battery.chargeEndHour}
+                    onChange={(e) =>
+                      setBattery({
+                        ...battery,
+                        chargeEndHour: parseInt(e.target.value),
+                      })
+                    }
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    {Array.from({ length: 25 }, (_, h) => (
+                      <option key={h} value={h}>
+                        {h.toString().padStart(2, "0")}
+                      </option>
+                    ))}
                   </select>
                   <span className="text-xs text-gray-400">:</span>
-                  <select value={battery.chargeEndMinute} onChange={(e) => setBattery({ ...battery, chargeEndMinute: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                    <option value={0}>00</option><option value={30}>30</option>
+                  <select
+                    value={battery.chargeEndMinute}
+                    onChange={(e) =>
+                      setBattery({
+                        ...battery,
+                        chargeEndMinute: parseInt(e.target.value),
+                      })
+                    }
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    <option value={0}>00</option>
+                    <option value={30}>30</option>
                   </select>
                 </div>
               )}
@@ -164,33 +251,85 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
         {ev.hasEV && (
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-gray-500">Charging Speed (kW)</label>
+              <label className="text-xs text-gray-500">
+                Charging Speed (kW)
+              </label>
               <input
                 type="number"
                 value={ev.chargingSpeedKw}
-                onChange={(e) => setEV({ ...ev, chargingSpeedKw: parseFloat(e.target.value) || 0 })}
+                onChange={(e) =>
+                  setEV({
+                    ...ev,
+                    chargingSpeedKw: parseFloat(e.target.value) || 0,
+                  })
+                }
                 className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
                 min="0"
                 step="0.1"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-2 block">Charging Hours</label>
+              <label className="text-xs text-gray-500 mb-2 block">
+                Charging Hours
+              </label>
               <div className="flex items-center gap-2">
-                <select value={ev.chargingStartHour} onChange={(e) => setEV({ ...ev, chargingStartHour: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>)}
+                <select
+                  value={ev.chargingStartHour}
+                  onChange={(e) =>
+                    setEV({
+                      ...ev,
+                      chargingStartHour: parseInt(e.target.value),
+                    })
+                  }
+                  className="border border-gray-200 rounded px-2 py-1 text-xs"
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {h.toString().padStart(2, "0")}
+                    </option>
+                  ))}
                 </select>
                 <span className="text-xs text-gray-400">:</span>
-                <select value={ev.chargingStartMinute} onChange={(e) => setEV({ ...ev, chargingStartMinute: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                  <option value={0}>00</option><option value={30}>30</option>
+                <select
+                  value={ev.chargingStartMinute}
+                  onChange={(e) =>
+                    setEV({
+                      ...ev,
+                      chargingStartMinute: parseInt(e.target.value),
+                    })
+                  }
+                  className="border border-gray-200 rounded px-2 py-1 text-xs"
+                >
+                  <option value={0}>00</option>
+                  <option value={30}>30</option>
                 </select>
                 <span className="text-xs text-gray-400">to</span>
-                <select value={ev.chargingEndHour} onChange={(e) => setEV({ ...ev, chargingEndHour: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                  {Array.from({ length: 25 }, (_, h) => <option key={h} value={h}>{h.toString().padStart(2, '0')}</option>)}
+                <select
+                  value={ev.chargingEndHour}
+                  onChange={(e) =>
+                    setEV({ ...ev, chargingEndHour: parseInt(e.target.value) })
+                  }
+                  className="border border-gray-200 rounded px-2 py-1 text-xs"
+                >
+                  {Array.from({ length: 25 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {h.toString().padStart(2, "0")}
+                    </option>
+                  ))}
                 </select>
                 <span className="text-xs text-gray-400">:</span>
-                <select value={ev.chargingEndMinute} onChange={(e) => setEV({ ...ev, chargingEndMinute: parseInt(e.target.value) })} className="border border-gray-200 rounded px-2 py-1 text-xs">
-                  <option value={0}>00</option><option value={30}>30</option>
+                <select
+                  value={ev.chargingEndMinute}
+                  onChange={(e) =>
+                    setEV({
+                      ...ev,
+                      chargingEndMinute: parseInt(e.target.value),
+                    })
+                  }
+                  className="border border-gray-200 rounded px-2 py-1 text-xs"
+                >
+                  <option value={0}>00</option>
+                  <option value={30}>30</option>
                 </select>
               </div>
             </div>

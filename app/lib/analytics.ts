@@ -132,7 +132,9 @@ export function getWeekComparison(data: EnergyData, weekKey: string) {
     isSameWeek(parseISO(d.date), prevWeekDate, { weekStartsOn: 1 }),
   );
 
-  if (currentWeek.length === 0) return null;
+  if (currentWeek.length === 0) {
+    return null;
+  }
 
   const currentTotal = currentWeek.reduce((s, d) => s + d.totalKwh, 0);
   const prevTotal = prevWeek.reduce((s, d) => s + d.totalKwh, 0);
@@ -166,7 +168,9 @@ export function getMonthComparison(data: EnergyData, monthKey: string) {
   const currentMonth = data.days.filter((d) => d.date.startsWith(monthKey));
   const prevMonth = data.days.filter((d) => d.date.startsWith(prevKey));
 
-  if (currentMonth.length === 0) return null;
+  if (currentMonth.length === 0) {
+    return null;
+  }
 
   const currentTotal = currentMonth.reduce((s, d) => s + d.totalKwh, 0);
   const prevTotal = prevMonth.reduce((s, d) => s + d.totalKwh, 0);
@@ -209,7 +213,9 @@ export function getWeekYearAgoComparison(data: EnergyData, weekKey: string) {
     isSameWeek(parseISO(d.date), yearAgoWeekStart, { weekStartsOn: 1 }),
   );
 
-  if (currentWeek.length === 0) return null;
+  if (currentWeek.length === 0) {
+    return null;
+  }
 
   const currentTotal = currentWeek.reduce((s, d) => s + d.totalKwh, 0);
   const yearAgoTotal = yearAgoWeek.reduce((s, d) => s + d.totalKwh, 0);
@@ -243,7 +249,9 @@ export function getMonthYearAgoComparison(data: EnergyData, monthKey: string) {
   const currentMonth = data.days.filter((d) => d.date.startsWith(monthKey));
   const yearAgoMonth = data.days.filter((d) => d.date.startsWith(yearAgoKey));
 
-  if (currentMonth.length === 0) return null;
+  if (currentMonth.length === 0) {
+    return null;
+  }
 
   const currentTotal = currentMonth.reduce((s, d) => s + d.totalKwh, 0);
   const yearAgoTotal = yearAgoMonth.reduce((s, d) => s + d.totalKwh, 0);
@@ -467,10 +475,14 @@ export function getRatePeriodForTime(
     const start = rate.startHour * 60 + rate.startMinute;
     const end = rate.endHour * 60 + rate.endMinute;
     if (end > start) {
-      if (timeInMinutes >= start && timeInMinutes < end) return rate;
+      if (timeInMinutes >= start && timeInMinutes < end) {
+        return rate;
+      }
     } else {
       // Wraps midnight
-      if (timeInMinutes >= start || timeInMinutes < end) return rate;
+      if (timeInMinutes >= start || timeInMinutes < end) {
+        return rate;
+      }
     }
   }
   return schedule.rates.length > 0
@@ -498,7 +510,9 @@ function calcTieredCost(
   let used = cumulativeUsed;
 
   for (const tier of rate.tiers) {
-    if (remaining <= 0) break;
+    if (remaining <= 0) {
+      break;
+    }
 
     if (tier.unitLimit === null) {
       // Unlimited tier — all remaining units at this rate
@@ -539,14 +553,18 @@ export function calculateTariffCost(data: EnergyData, tariff: Tariff) {
     const date = parseISO(day.date);
     const dayOfWeek = getDay(date);
     const schedule = getScheduleForDay(tariff, dayOfWeek);
-    if (!schedule) continue;
+    if (!schedule) {
+      continue;
+    }
 
     let dayCost = tariff.standingCharge + tariff.psoLevy;
 
     for (const reading of day.readings) {
       const [h, m] = reading.time.split(":").map(Number);
       const ratePeriod = getRatePeriodForTime(schedule, h, m);
-      if (!ratePeriod) continue;
+      if (!ratePeriod) {
+        continue;
+      }
 
       const label = ratePeriod.label;
       const cumUsed = cumulativeByLabel[label] || 0;
@@ -626,18 +644,36 @@ export interface RateInfo {
 }
 
 // Assign distinct colors to rate periods based on their index in the schedule
-const RATE_COLORS = ['#6366f1', '#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#8b5cf6', '#14b8a6'];
+const RATE_COLORS = [
+  "#6366f1",
+  "#3b82f6",
+  "#f59e0b",
+  "#ef4444",
+  "#10b981",
+  "#ec4899",
+  "#8b5cf6",
+  "#14b8a6",
+];
 
 /**
  * Get rate period info for a given time slot and tariff, using the schedule for the given day of week.
  * For tiered rates, uses the lowest (first tier) rate.
  */
-export function getRateInfoForTime(tariff: Tariff, dayOfWeek: number, hour: number, minute: number): RateInfo {
+export function getRateInfoForTime(
+  tariff: Tariff,
+  dayOfWeek: number,
+  hour: number,
+  minute: number,
+): RateInfo {
   const schedule = getScheduleForDay(tariff, dayOfWeek);
-  if (!schedule) return { label: 'Unknown', ratePerKwh: 0, color: '#9ca3af' };
+  if (!schedule) {
+    return { label: "Unknown", ratePerKwh: 0, color: "#9ca3af" };
+  }
 
   const ratePeriod = getRatePeriodForTime(schedule, hour, minute);
-  if (!ratePeriod) return { label: 'Unknown', ratePerKwh: 0, color: '#9ca3af' };
+  if (!ratePeriod) {
+    return { label: "Unknown", ratePerKwh: 0, color: "#9ca3af" };
+  }
 
   // Use lowest tier rate for display
   let effectiveRate = ratePeriod.ratePerKwh;
@@ -647,7 +683,9 @@ export function getRateInfoForTime(tariff: Tariff, dayOfWeek: number, hour: numb
 
   // Assign color based on the first occurrence of this label in the schedule,
   // so that split periods with the same label (e.g. "Day" appearing before and after "EV") get the same color
-  const firstIndex = schedule.rates.findIndex(r => r.label === ratePeriod.label);
+  const firstIndex = schedule.rates.findIndex(
+    (r) => r.label === ratePeriod.label,
+  );
   const color = RATE_COLORS[firstIndex % RATE_COLORS.length];
 
   return { label: ratePeriod.label, ratePerKwh: effectiveRate, color };
@@ -657,12 +695,20 @@ export function getRateInfoForTime(tariff: Tariff, dayOfWeek: number, hour: numb
  * Get all unique rate periods for a tariff (for legend display).
  * Returns de-duplicated rate labels with their colors.
  */
-export function getTariffRatePeriods(tariff: Tariff): { label: string; ratePerKwh: number; color: string }[] {
+export function getTariffRatePeriods(
+  tariff: Tariff,
+): { label: string; ratePerKwh: number; color: string }[] {
   // Collect all schedules
   const schedules: DaySchedule[] = [];
-  if (tariff.uniformSchedule) schedules.push(tariff.uniformSchedule);
-  if (tariff.weekdaySchedule) schedules.push(tariff.weekdaySchedule);
-  if (tariff.weekendSchedule) schedules.push(tariff.weekendSchedule);
+  if (tariff.uniformSchedule) {
+    schedules.push(tariff.uniformSchedule);
+  }
+  if (tariff.weekdaySchedule) {
+    schedules.push(tariff.weekdaySchedule);
+  }
+  if (tariff.weekendSchedule) {
+    schedules.push(tariff.weekendSchedule);
+  }
   if (tariff.customSchedules) {
     for (const s of Object.values(tariff.customSchedules)) {
       schedules.push(s);
@@ -674,7 +720,9 @@ export function getTariffRatePeriods(tariff: Tariff): { label: string; ratePerKw
 
   for (const schedule of schedules) {
     for (const rate of schedule.rates) {
-      if (seen.has(rate.label)) continue;
+      if (seen.has(rate.label)) {
+        continue;
+      }
       seen.add(rate.label);
 
       let effectiveRate = rate.ratePerKwh;
@@ -683,8 +731,14 @@ export function getTariffRatePeriods(tariff: Tariff): { label: string; ratePerKw
       }
 
       // Use the index of the first occurrence of this label, matching getRateInfoForTime
-      const firstIndex = schedule.rates.findIndex(r => r.label === rate.label);
-      result.push({ label: rate.label, ratePerKwh: effectiveRate, color: RATE_COLORS[firstIndex % RATE_COLORS.length] });
+      const firstIndex = schedule.rates.findIndex(
+        (r) => r.label === rate.label,
+      );
+      result.push({
+        label: rate.label,
+        ratePerKwh: effectiveRate,
+        color: RATE_COLORS[firstIndex % RATE_COLORS.length],
+      });
     }
   }
 
@@ -695,15 +749,23 @@ export function getTariffRatePeriods(tariff: Tariff): { label: string; ratePerKw
  * Tariff-aware time-of-use breakdown: groups usage and cost by the tariff's rate periods.
  */
 export function getTariffTimeOfUseBreakdown(data: EnergyData, tariff: Tariff) {
-  const buckets = new Map<string, { kwh: number; cost: number; color: string; ratePerKwh: number }>();
+  const buckets = new Map<
+    string,
+    { kwh: number; cost: number; color: string; ratePerKwh: number }
+  >();
 
   for (const day of data.days) {
     const parsed = parseISO(day.date);
     const dayOfWeek = getDay(parsed);
     for (const reading of day.readings) {
-      const [h, m] = reading.time.split(':').map(Number);
+      const [h, m] = reading.time.split(":").map(Number);
       const rateInfo = getRateInfoForTime(tariff, dayOfWeek, h, m);
-      const bucket = buckets.get(rateInfo.label) || { kwh: 0, cost: 0, color: rateInfo.color, ratePerKwh: rateInfo.ratePerKwh };
+      const bucket = buckets.get(rateInfo.label) || {
+        kwh: 0,
+        cost: 0,
+        color: rateInfo.color,
+        ratePerKwh: rateInfo.ratePerKwh,
+      };
       bucket.kwh += reading.kwh;
       bucket.cost += reading.kwh * rateInfo.ratePerKwh; // cents
       buckets.set(rateInfo.label, bucket);
@@ -729,7 +791,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
     id: "energia-ev-smart-drive",
     name: "Energia EV Smart Drive",
     provider: "Energia",
-    standingCharge: 72.60, // €265.01/year
+    standingCharge: 72.6, // €265.01/year
     psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
@@ -769,7 +831,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
     id: "energia-smart-data",
     name: "Energia Smart Data",
     provider: "Energia",
-    standingCharge: 72.60, // €265.01/year
+    standingCharge: 72.6, // €265.01/year
     psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
@@ -813,7 +875,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
     id: "energia-smart-24-hour",
     name: "Energia Smart 24 Hour",
     provider: "Energia",
-    standingCharge: 72.60, // €265.01/year
+    standingCharge: 72.6, // €265.01/year
     psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
@@ -833,7 +895,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
     id: "energia-smart-day-night",
     name: "Energia Smart Day Night",
     provider: "Energia",
-    standingCharge: 72.60, // €265.01/year
+    standingCharge: 72.6, // €265.01/year
     psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
@@ -861,7 +923,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
     id: "energia-smart-drive-plus",
     name: "Energia Smart Drive Plus",
     provider: "Energia",
-    standingCharge: 72.60, // €265.01/year
+    standingCharge: 72.6, // €265.01/year
     psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
@@ -929,7 +991,7 @@ export const DEFAULT_TARIFFS: Tariff[] = [
     id: "energia-sst",
     name: "Energia SST",
     provider: "Energia",
-    standingCharge: 72.60, // €265.01/year
+    standingCharge: 72.6, // €265.01/year
     psoLevy: 5.23, // €19.10/year
     scheduleType: "uniform",
     uniformSchedule: {
@@ -963,11 +1025,10 @@ export const DEFAULT_TARIFFS: Tariff[] = [
           startMinute: 0,
           endHour: 8,
           endMinute: 0,
-          ratePerKwh: 24.70,
+          ratePerKwh: 24.7,
           label: "Night",
         },
       ],
     },
   },
 ];
-
