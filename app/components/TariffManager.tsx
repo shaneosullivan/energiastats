@@ -16,7 +16,7 @@ interface Props {
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function TierEditor({ tiers, onChange }: { tiers: RateTier[]; onChange: (tiers: RateTier[]) => void }) {
+export function TierEditor({ tiers, onChange }: { tiers: RateTier[]; onChange: (tiers: RateTier[]) => void }) {
   const addTier = () => {
     onChange([...tiers, { unitLimit: null, ratePerKwh: 10, label: 'High Usage' }]);
   };
@@ -75,7 +75,7 @@ function TierEditor({ tiers, onChange }: { tiers: RateTier[]; onChange: (tiers: 
   );
 }
 
-function RateEditor({ rates, onChange }: { rates: TimePeriodRate[]; onChange: (rates: TimePeriodRate[]) => void }) {
+export function RateEditor({ rates, onChange }: { rates: TimePeriodRate[]; onChange: (rates: TimePeriodRate[]) => void }) {
   const addRate = () => {
     onChange([...rates, { startHour: 8, startMinute: 0, endHour: 23, endMinute: 0, ratePerKwh: 20, label: 'New Rate' }]);
   };
@@ -183,7 +183,7 @@ function RateEditor({ rates, onChange }: { rates: TimePeriodRate[]; onChange: (r
   );
 }
 
-function TariffEditor({ tariff, onChange }: { tariff: Tariff; onChange: (t: Tariff) => void }) {
+export function TariffEditor({ tariff, onChange }: { tariff: Tariff; onChange: (t: Tariff) => void }) {
   const update = (field: string, value: unknown) => {
     onChange({ ...tariff, [field]: value });
   };

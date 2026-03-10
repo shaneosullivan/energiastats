@@ -424,7 +424,7 @@ export function detectTrends(data: EnergyData) {
 
 // ─── Tariff cost calculation ───
 
-function getScheduleForDay(
+export function getScheduleForDay(
   tariff: Tariff,
   dayOfWeek: number,
 ): DaySchedule | null {
@@ -457,7 +457,7 @@ function getScheduleForDay(
   }
 }
 
-function getRatePeriodForTime(
+export function getRatePeriodForTime(
   schedule: DaySchedule,
   hour: number,
   minute: number,

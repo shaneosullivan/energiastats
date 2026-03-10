@@ -56,15 +56,45 @@ export interface Tariff {
   };
 }
 
-export interface Appliance {
-  id: string;
-  name: string;
-  icon: string;
-  averageKwhPerUse: number;
-  typicalUsesPerWeek: number;
-  category: 'heating' | 'cooking' | 'laundry' | 'transport' | 'entertainment' | 'other';
+export interface BatterySettings {
+  hasBattery: boolean;
+  capacityKwh: number;
+  usablePercent: number; // 0-100, default 90
+  chargeStartHour: number;
+  chargeStartMinute: number;
+  chargeEndHour: number;
+  chargeEndMinute: number;
+  autoDetectCheapest: boolean; // if true, override hours with cheapest tariff period
 }
 
-export type GranularityLevel = 'monthly' | 'weekly' | 'daily' | 'hourly' | 'halfhourly';
+export interface EVSettings {
+  hasEV: boolean;
+  chargingStartHour: number;
+  chargingStartMinute: number;
+  chargingEndHour: number;
+  chargingEndMinute: number;
+  chargingSpeedKw: number; // e.g. 7.4
+}
 
-export type ComparisonType = 'previous_period' | 'same_period_last_year' | 'custom';
+export interface UserSettings {
+  currentTariff: Tariff;
+  battery: BatterySettings;
+  ev: EVSettings;
+}
+
+export interface SimulationConfig {
+  tariff: Tariff;
+  battery: BatterySettings;
+  ev: EVSettings;
+}
+
+export interface SimulationResult {
+  currentTotalCostCents: number;
+  simulatedTotalCostCents: number;
+  savingsCents: number;
+  savingsPercent: number;
+  yearlySavingsCents: number;
+  dailyCosts: { date: string; currentCost: number; simulatedCost: number }[];
+  simulatedDays: DayData[];
+  numDays: number;
+}

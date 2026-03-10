@@ -1,14 +1,20 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { EnergyData, Tariff } from '../lib/types';
-import { DEFAULT_TARIFFS } from '../lib/analytics';
-import OverviewCards from './OverviewCards';
-import UsageCharts from './UsageCharts';
-import ComparisonView from './ComparisonView';
-import HeatmapView from './HeatmapView';
-import TariffManager from './TariffManager';
-import InsightsPanel from './InsightsPanel';
+import { useState, useEffect, useCallback } from "react";
+import {
+  EnergyData,
+  UserSettings,
+  BatterySettings,
+  EVSettings,
+} from "../lib/types";
+import { DEFAULT_TARIFFS } from "../lib/analytics";
+import OverviewCards from "./OverviewCards";
+import UsageCharts from "./UsageCharts";
+import ComparisonView from "./ComparisonView";
+import HeatmapView from "./HeatmapView";
+import InsightsPanel from "./InsightsPanel";
+import SettingsPanel from "./SettingsPanel";
+import SimulateTab from "./SimulateTab";
 
 interface Props {
   data: EnergyData;
@@ -16,20 +22,92 @@ interface Props {
   onReset: () => void;
 }
 
-type Tab = 'overview' | 'charts' | 'compare' | 'heatmap' | 'tariffs' | 'insights';
+type Tab =
+  | "overview"
+  | "charts"
+  | "compare"
+  | "heatmap"
+  | "settings"
+  | "simulate"
+  | "insights";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'overview', label: 'Overview', icon: '📊' },
-  { key: 'charts', label: 'Charts', icon: '📈' },
-  { key: 'compare', label: 'Compare', icon: '⚖️' },
-  { key: 'heatmap', label: 'Heatmap', icon: '🔥' },
-  { key: 'tariffs', label: 'Tariffs', icon: '💰' },
-  { key: 'insights', label: 'Insights', icon: '💡' },
+  { key: "overview", label: "Overview", icon: "📊" },
+  { key: "settings", label: "My Settings", icon: "⚙️" },
+  { key: "charts", label: "Charts", icon: "📈" },
+  { key: "compare", label: "Compare", icon: "⚖️" },
+  { key: "heatmap", label: "Heatmap", icon: "🔥" },
+  { key: "simulate", label: "Simulate", icon: "🔬" },
+  { key: "insights", label: "Insights", icon: "💡" },
 ];
 
+const SETTINGS_KEY = "energia-insights-settings";
+
+const DEFAULT_BATTERY: BatterySettings = {
+  hasBattery: false,
+  capacityKwh: 10,
+  usablePercent: 90,
+  chargeStartHour: 2,
+  chargeStartMinute: 0,
+  chargeEndHour: 6,
+  chargeEndMinute: 0,
+  autoDetectCheapest: true,
+};
+
+const DEFAULT_EV: EVSettings = {
+  hasEV: false,
+  chargingStartHour: 2,
+  chargingStartMinute: 0,
+  chargingEndHour: 6,
+  chargingEndMinute: 0,
+  chargingSpeedKw: 7.4,
+};
+
+function loadSettings(): UserSettings {
+  if (typeof window === "undefined") {
+    return {
+      currentTariff: DEFAULT_TARIFFS[0],
+      battery: DEFAULT_BATTERY,
+      ev: DEFAULT_EV,
+    };
+  }
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as UserSettings;
+      // Validate it has the expected shape
+      if (parsed.currentTariff && parsed.battery && parsed.ev) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return {
+    currentTariff: DEFAULT_TARIFFS[0],
+    battery: DEFAULT_BATTERY,
+    ev: DEFAULT_EV,
+  };
+}
+
 export default function Dashboard({ data, fileName, onReset }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [currentTariff, setCurrentTariff] = useState<Tariff>(DEFAULT_TARIFFS[0]);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [userSettings, setUserSettings] = useState<UserSettings>(loadSettings);
+
+  // Persist settings to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
+    } catch {
+      // ignore quota errors
+    }
+  }, [userSettings]);
+
+  const currentTariff = userSettings.currentTariff;
+
+  const handleSettingsChange = useCallback((settings: UserSettings) => {
+    setUserSettings(settings);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -37,8 +115,12 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-gray-900">Energia Insights</h1>
-            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2.5 py-0.5">{fileName}</span>
+            <h1 className="text-lg font-bold text-gray-900">
+              Energia Insights
+            </h1>
+            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2.5 py-0.5">
+              {fileName}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -64,14 +146,16 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
         {/* Tab navigation */}
         <div className="max-w-7xl mx-auto px-4">
           <nav className="flex gap-1 overflow-x-auto pb-px -mb-px">
-            {TABS.map(tab => (
+            {TABS.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-                  ${activeTab === tab.key
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                  ${
+                    activeTab === tab.key
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
               >
                 <span className="text-xs">{tab.icon}</span>
                 {tab.label}
@@ -83,17 +167,31 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {activeTab === 'overview' && (
+        {activeTab === "overview" && (
           <>
             <OverviewCards data={data} />
             <InsightsPanel data={data} currentTariff={currentTariff} />
           </>
         )}
-        {activeTab === 'charts' && <UsageCharts data={data} currentTariff={currentTariff} />}
-        {activeTab === 'compare' && <ComparisonView data={data} />}
-        {activeTab === 'heatmap' && <HeatmapView data={data} currentTariff={currentTariff} />}
-        {activeTab === 'tariffs' && <TariffManager data={data} currentTariff={currentTariff} onCurrentTariffChange={setCurrentTariff} />}
-        {activeTab === 'insights' && <InsightsPanel data={data} currentTariff={currentTariff} />}
+        {activeTab === "charts" && (
+          <UsageCharts data={data} currentTariff={currentTariff} />
+        )}
+        {activeTab === "compare" && <ComparisonView data={data} />}
+        {activeTab === "heatmap" && (
+          <HeatmapView data={data} currentTariff={currentTariff} />
+        )}
+        {activeTab === "settings" && (
+          <SettingsPanel
+            settings={userSettings}
+            onSettingsChange={handleSettingsChange}
+          />
+        )}
+        {activeTab === "simulate" && (
+          <SimulateTab data={data} currentSettings={userSettings} />
+        )}
+        {activeTab === "insights" && (
+          <InsightsPanel data={data} currentTariff={currentTariff} />
+        )}
       </main>
     </div>
   );
