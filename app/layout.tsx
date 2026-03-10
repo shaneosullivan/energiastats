@@ -72,6 +72,10 @@ export default function RootLayout({
           {" · "}
           MIT License
         </footer>
+        <script
+          async
+          src="https://scripts.simpleanalyticscdn.com/latest.js"
+        ></script>
       </body>
     </html>
   );
