@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   EnergyData,
   DayData,
@@ -93,53 +93,143 @@ const TIME_SLOTS = [
 
 const USAGE_SCALE = [
   "#f9fafb",
-  "#dbeafe",
-  "#93c5fd",
-  "#3b82f6",
-  "#1d4ed8",
+  "#f4f7fc",
+  "#eff4fc",
+  "#e9f2fd",
+  "#e4effd",
+  "#dfecfe",
+  "#d9e9fe",
+  "#cce2fe",
+  "#c0dcfe",
+  "#b3d6fd",
+  "#a7cffd",
+  "#9ac9fd",
+  "#8dc0fd",
+  "#7eb5fb",
+  "#6fa9fa",
+  "#5f9ef9",
+  "#5092f8",
+  "#4187f6",
+  "#387df3",
+  "#3374ee",
+  "#2e6be9",
+  "#2862e3",
+  "#2359de",
+  "#1e50d9",
+  "#1d4bc7",
+  "#1d48b2",
+  "#1d449e",
+  "#1e4189",
+  "#1e3d74",
   "#1e3a5f",
 ];
 const COST_SCALE = [
   "#f9fafb",
-  "#dcfce7",
-  "#86efac",
-  "#22c55e",
-  "#15803d",
+  "#f4faf8",
+  "#effbf4",
+  "#eafbf1",
+  "#e5fbed",
+  "#e0fcea",
+  "#d9fce5",
+  "#caf9db",
+  "#bbf7d1",
+  "#adf5c6",
+  "#9ef3bc",
+  "#8ff0b2",
+  "#7feca7",
+  "#6ee599",
+  "#5dde8c",
+  "#4bd67e",
+  "#3acf71",
+  "#29c863",
+  "#21be5b",
+  "#1eb255",
+  "#1ca64f",
+  "#1a9a4a",
+  "#188e44",
+  "#15823e",
+  "#157a3b",
+  "#157238",
+  "#156a35",
+  "#146333",
+  "#145b30",
   "#14532d",
 ];
 const DIFF_SCALE_NEGATIVE = [
   "#14532d",
-  "#15803d",
-  "#22c55e",
-  "#86efac",
-  "#dcfce7",
-]; // savings = green
+  "#145b30",
+  "#146333",
+  "#156a35",
+  "#157238",
+  "#157a3b",
+  "#15823e",
+  "#188e44",
+  "#1a9a4a",
+  "#1ca64f",
+  "#1eb255",
+  "#21be5b",
+  "#29c863",
+  "#3acf71",
+  "#4bd67e",
+  "#5dde8c",
+  "#6ee599",
+  "#7feca7",
+  "#8ff0b2",
+  "#9ef3bc",
+  "#adf5c6",
+  "#bbf7d1",
+  "#caf9db",
+  "#d9fce5",
+  "#dffce9",
+  "#e2fceb",
+  "#e6fced",
+  "#e9fdf0",
+  "#edfdf2",
+  "#f0fdf4",
+]; // savings = green (dark to light)
 const DIFF_SCALE_POSITIVE = [
-  "#fef2f2",
-  "#fca5a5",
-  "#ef4444",
-  "#b91c1c",
+  "#fff1f2",
+  "#ffebed",
+  "#ffe5e7",
+  "#fedee2",
+  "#fed8dd",
+  "#fed2d7",
+  "#fecad0",
+  "#fdbabf",
+  "#fcaaae",
+  "#fb9a9d",
+  "#fa8a8c",
+  "#f97b7b",
+  "#f66c6c",
+  "#f15f5f",
+  "#ec5252",
+  "#e84545",
+  "#e33838",
+  "#de2b2b",
+  "#d52525",
+  "#ca2323",
+  "#be2121",
+  "#b21f1f",
+  "#a71d1d",
+  "#9b1b1b",
+  "#951b1b",
+  "#911c1c",
+  "#8c1c1c",
+  "#881c1c",
+  "#831d1d",
   "#7f1d1d",
-]; // extra cost = red
+]; // extra cost = red (light to dark)
 
 function getScaledColor(value: number, max: number, scale: string[]): string {
   if (value === 0) {
     return scale[0];
   }
   const intensity = Math.min(value / max, 1);
-  if (intensity < 0.2) {
-    return scale[1];
-  }
-  if (intensity < 0.4) {
-    return scale[2];
-  }
-  if (intensity < 0.6) {
-    return scale[3];
-  }
-  if (intensity < 0.8) {
-    return scale[4];
-  }
-  return scale[5];
+  const idx = Math.min(
+    Math.ceil(intensity * (scale.length - 1)),
+    scale.length - 1,
+  );
+  return scale[idx];
 }
 
 function getDiffColor(value: number, maxAbs: number): string {
@@ -148,19 +238,11 @@ function getDiffColor(value: number, maxAbs: number): string {
   }
   const intensity = Math.min(Math.abs(value) / maxAbs, 1);
   const scale = value < 0 ? DIFF_SCALE_NEGATIVE : DIFF_SCALE_POSITIVE;
-  if (intensity < 0.2) {
-    return scale[0];
-  }
-  if (intensity < 0.4) {
-    return scale[1];
-  }
-  if (intensity < 0.6) {
-    return scale[2];
-  }
-  if (intensity < 0.8) {
-    return scale[3];
-  }
-  return scale[4];
+  const idx = Math.min(
+    Math.ceil(intensity * (scale.length - 1)),
+    scale.length - 1,
+  );
+  return scale[idx];
 }
 
 function aggregateCosts(
@@ -206,17 +288,52 @@ export default function SimulateTab({ data, currentSettings }: Props) {
     JSON.parse(JSON.stringify(currentSettings.ev)),
   );
   const [result, setResult] = useState<SimulationResult | null>(null);
+  const [stale, setStale] = useState(false);
   const [granularity, setGranularity] = useState<Granularity>("monthly");
   const [heatmapView, setHeatmapView] = useState<HeatmapView>("difference");
   const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>("cost");
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Mark results as stale when any simulation parameter changes
+  useEffect(() => {
+    if (result) {
+      setStale(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simTariff, simBattery, simEV]);
 
   const handleSimulate = useCallback(() => {
-    const r = runSimulation(data, currentSettings, {
+    const simConfig = {
       tariff: simTariff,
       battery: simBattery,
       ev: simEV,
-    });
+    };
+    const r = runSimulation(data, currentSettings, simConfig);
+    console.log(
+      "Simulation debug",
+      JSON.stringify({
+        currentSettings,
+        simConfig,
+        result: {
+          currentTotalCostCents: r.currentTotalCostCents,
+          simulatedTotalCostCents: r.simulatedTotalCostCents,
+          savingsCents: r.savingsCents,
+          savingsPercent: r.savingsPercent,
+          yearlySavingsCents: r.yearlySavingsCents,
+          exportRevenueCents: r.exportRevenueCents,
+          numDays: r.numDays,
+        },
+      }),
+    );
     setResult(r);
+    setStale(false);
+    // Scroll to results after render
+    requestAnimationFrame(() => {
+      resultsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   }, [data, currentSettings, simTariff, simBattery, simEV]);
 
   const handlePresetChange = (presetId: string) => {
@@ -515,6 +632,205 @@ export default function SimulateTab({ data, currentSettings }: Props) {
                       </div>
                     )}
                   </div>
+
+                  <div>
+                    <label className="text-xs text-gray-500">
+                      Min Charge: {simBattery.minChargePercent ?? 5}%
+                    </label>
+                    <input
+                      type="range"
+                      value={simBattery.minChargePercent ?? 5}
+                      onChange={(e) =>
+                        setSimBattery({
+                          ...simBattery,
+                          minChargePercent: parseInt(e.target.value),
+                        })
+                      }
+                      className="w-full mt-1"
+                      min="0"
+                      max="50"
+                      step="1"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-400">
+                      <span>0%</span>
+                      <span className="font-medium text-gray-600">
+                        {(
+                          (simBattery.capacityKwh *
+                            (simBattery.minChargePercent ?? 5)) /
+                          100
+                        ).toFixed(1)}{" "}
+                        kWh reserved
+                      </span>
+                      <span>50%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs text-gray-500">
+                        Forced Discharge / Export
+                      </label>
+                      <button
+                        onClick={() =>
+                          setSimBattery({
+                            ...simBattery,
+                            dischargeWindows: [
+                              ...(simBattery.dischargeWindows ?? []),
+                              {
+                                startHour: 17,
+                                startMinute: 0,
+                                endHour: 19,
+                                endMinute: 0,
+                                exportRatePerKwh: 21,
+                              },
+                            ],
+                          })
+                        }
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        + Add
+                      </button>
+                    </div>
+
+                    {(simBattery.dischargeWindows ?? []).length === 0 && (
+                      <p className="text-xs text-gray-400 italic">
+                        No forced discharge windows.
+                      </p>
+                    )}
+
+                    {(simBattery.dischargeWindows ?? []).map((dw, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-1 mb-2 bg-gray-50 rounded-lg p-1.5"
+                      >
+                        <select
+                          value={dw.startHour}
+                          onChange={(e) => {
+                            const windows = [
+                              ...(simBattery.dischargeWindows ?? []),
+                            ];
+                            windows[idx] = {
+                              ...dw,
+                              startHour: parseInt(e.target.value),
+                            };
+                            setSimBattery({
+                              ...simBattery,
+                              dischargeWindows: windows,
+                            });
+                          }}
+                          className="border border-gray-200 rounded px-1 py-0.5 text-xs"
+                        >
+                          {Array.from({ length: 24 }, (_, h) => (
+                            <option key={h} value={h}>
+                              {h.toString().padStart(2, "0")}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-gray-400">:</span>
+                        <select
+                          value={dw.startMinute}
+                          onChange={(e) => {
+                            const windows = [
+                              ...(simBattery.dischargeWindows ?? []),
+                            ];
+                            windows[idx] = {
+                              ...dw,
+                              startMinute: parseInt(e.target.value),
+                            };
+                            setSimBattery({
+                              ...simBattery,
+                              dischargeWindows: windows,
+                            });
+                          }}
+                          className="border border-gray-200 rounded px-1 py-0.5 text-xs"
+                        >
+                          <option value={0}>00</option>
+                          <option value={30}>30</option>
+                        </select>
+                        <span className="text-xs text-gray-400">-</span>
+                        <select
+                          value={dw.endHour}
+                          onChange={(e) => {
+                            const windows = [
+                              ...(simBattery.dischargeWindows ?? []),
+                            ];
+                            windows[idx] = {
+                              ...dw,
+                              endHour: parseInt(e.target.value),
+                            };
+                            setSimBattery({
+                              ...simBattery,
+                              dischargeWindows: windows,
+                            });
+                          }}
+                          className="border border-gray-200 rounded px-1 py-0.5 text-xs"
+                        >
+                          {Array.from({ length: 25 }, (_, h) => (
+                            <option key={h} value={h}>
+                              {h.toString().padStart(2, "0")}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-gray-400">:</span>
+                        <select
+                          value={dw.endMinute}
+                          onChange={(e) => {
+                            const windows = [
+                              ...(simBattery.dischargeWindows ?? []),
+                            ];
+                            windows[idx] = {
+                              ...dw,
+                              endMinute: parseInt(e.target.value),
+                            };
+                            setSimBattery({
+                              ...simBattery,
+                              dischargeWindows: windows,
+                            });
+                          }}
+                          className="border border-gray-200 rounded px-1 py-0.5 text-xs"
+                        >
+                          <option value={0}>00</option>
+                          <option value={30}>30</option>
+                        </select>
+                        <span className="text-[10px] text-gray-400">@</span>
+                        <input
+                          type="number"
+                          value={dw.exportRatePerKwh}
+                          onChange={(e) => {
+                            const windows = [
+                              ...(simBattery.dischargeWindows ?? []),
+                            ];
+                            windows[idx] = {
+                              ...dw,
+                              exportRatePerKwh: parseFloat(e.target.value) || 0,
+                            };
+                            setSimBattery({
+                              ...simBattery,
+                              dischargeWindows: windows,
+                            });
+                          }}
+                          className="w-14 border border-gray-200 rounded px-1 py-0.5 text-xs"
+                          min="0"
+                          step="0.01"
+                        />
+                        <span className="text-[10px] text-gray-400">c</span>
+                        <button
+                          onClick={() => {
+                            const windows = (
+                              simBattery.dischargeWindows ?? []
+                            ).filter((_, i) => i !== idx);
+                            setSimBattery({
+                              ...simBattery,
+                              dischargeWindows: windows,
+                            });
+                          }}
+                          className="text-red-400 hover:text-red-600 text-xs ml-auto"
+                        >
+                          X
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -641,7 +957,19 @@ export default function SimulateTab({ data, currentSettings }: Props) {
 
       {/* Results */}
       {result && (
-        <>
+        <div ref={resultsRef} className="relative space-y-6">
+          {stale && (
+            <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-[2px] rounded-xl flex items-center justify-center">
+              <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-6 py-4 text-center">
+                <p className="text-sm font-medium text-gray-700">
+                  Parameters have changed
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Click <strong>Run Simulation</strong> to update results
+                </p>
+              </div>
+            </div>
+          )}
           {/* Cost summary */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">
@@ -713,6 +1041,26 @@ export default function SimulateTab({ data, currentSettings }: Props) {
                   /year
                 </p>
               </div>
+              {result.exportRevenueCents > 0 && (
+                <div className="rounded-lg p-3 bg-purple-50">
+                  <p className="text-xs text-gray-500 font-medium">
+                    Grid Export Revenue
+                  </p>
+                  <p className="text-xl font-bold text-purple-700">
+                    &euro;
+                    {(result.exportRevenueCents / 100).toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    over {result.numDays} day
+                    {result.numDays !== 1 ? "s" : ""} (&euro;
+                    {(
+                      (result.exportRevenueCents / result.numDays / 100) *
+                      365
+                    ).toFixed(2)}
+                    /year)
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Bar chart */}
@@ -839,48 +1187,62 @@ export default function SimulateTab({ data, currentSettings }: Props) {
                   </div>
 
                   {/* Rows */}
-                  {data.days.map((day, dayIdx) => {
-                    const cells =
-                      heatmapView === "current"
-                        ? heatmapData.currentCells[dayIdx]
-                        : heatmapView === "simulated"
-                          ? heatmapData.simCells[dayIdx]
-                          : heatmapData.diffCells[dayIdx];
+                  {(() => {
+                    let lastYear = "";
+                    return data.days.map((day, dayIdx) => {
+                      const cells =
+                        heatmapView === "current"
+                          ? heatmapData.currentCells[dayIdx]
+                          : heatmapView === "simulated"
+                            ? heatmapData.simCells[dayIdx]
+                            : heatmapData.diffCells[dayIdx];
+                      const date = parseISO(day.date);
+                      const year = format(date, "yyyy");
+                      const showYear = year !== lastYear;
+                      if (showYear) {
+                        lastYear = year;
+                      }
 
-                    return (
-                      <div key={day.date} className="flex items-center mb-px">
-                        <div className="w-24 shrink-0 text-[10px] text-gray-500 pr-2 text-right truncate">
-                          {format(parseISO(day.date), "EEE dd MMM")}
+                      return (
+                        <div key={day.date} className="flex items-center mb-px">
+                          <div className="w-24 shrink-0 text-[10px] text-gray-500 pr-2 text-right truncate">
+                            {showYear
+                              ? format(date, "EEE dd MMM yyyy")
+                              : format(date, "EEE dd MMM")}
+                          </div>
+                          <div className="flex-1 flex">
+                            {cells.map((val, i) => {
+                              const color =
+                                heatmapView === "difference"
+                                  ? getDiffColor(val, heatmapData.maxDiffAbs)
+                                  : getScaledColor(
+                                      val,
+                                      heatmapData.maxValue,
+                                      heatmapMode === "usage"
+                                        ? USAGE_SCALE
+                                        : COST_SCALE,
+                                    );
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex-1 h-[18px] border-r border-b border-white/50"
+                                  style={{
+                                    backgroundColor: color,
+                                    minWidth: 14,
+                                  }}
+                                  title={
+                                    heatmapView === "difference"
+                                      ? `${day.readings[i]?.time}: ${heatmapMode === "usage" ? `${val.toFixed(3)} kWh` : `${(val / 100).toFixed(4)} \u20ac`} ${val > 0 ? "(more)" : val < 0 ? "(less)" : ""}`
+                                      : `${day.readings[i]?.time}: ${heatmapMode === "usage" ? `${val.toFixed(3)} kWh` : `${(val / 100).toFixed(4)} \u20ac`}`
+                                  }
+                                />
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="flex-1 flex">
-                          {cells.map((val, i) => {
-                            const color =
-                              heatmapView === "difference"
-                                ? getDiffColor(val, heatmapData.maxDiffAbs)
-                                : getScaledColor(
-                                    val,
-                                    heatmapData.maxValue,
-                                    heatmapMode === "usage"
-                                      ? USAGE_SCALE
-                                      : COST_SCALE,
-                                  );
-                            return (
-                              <div
-                                key={i}
-                                className="flex-1 h-[18px] border-r border-b border-white/50"
-                                style={{ backgroundColor: color, minWidth: 14 }}
-                                title={
-                                  heatmapView === "difference"
-                                    ? `${day.readings[i]?.time}: ${heatmapMode === "usage" ? `${val.toFixed(3)} kWh` : `${(val / 100).toFixed(4)} \u20ac`} ${val > 0 ? "(more)" : val < 0 ? "(less)" : ""}`
-                                    : `${day.readings[i]?.time}: ${heatmapMode === "usage" ? `${val.toFixed(3)} kWh` : `${(val / 100).toFixed(4)} \u20ac`}`
-                                }
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
@@ -923,7 +1285,7 @@ export default function SimulateTab({ data, currentSettings }: Props) {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

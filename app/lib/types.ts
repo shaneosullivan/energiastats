@@ -56,6 +56,14 @@ export interface Tariff {
   };
 }
 
+export interface DischargeWindow {
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+  exportRatePerKwh: number; // cents per kWh earned for grid export
+}
+
 export interface BatterySettings {
   hasBattery: boolean;
   capacityKwh: number;
@@ -65,6 +73,8 @@ export interface BatterySettings {
   chargeEndHour: number;
   chargeEndMinute: number;
   autoDetectCheapest: boolean; // if true, override hours with cheapest tariff period
+  dischargeWindows: DischargeWindow[]; // forced discharge/export windows
+  minChargePercent: number; // minimum SoC percent, default 5
 }
 
 export interface EVSettings {
@@ -97,4 +107,5 @@ export interface SimulationResult {
   dailyCosts: { date: string; currentCost: number; simulatedCost: number }[];
   simulatedDays: DayData[];
   numDays: number;
+  exportRevenueCents: number; // total revenue from grid export via forced discharge
 }

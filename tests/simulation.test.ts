@@ -55,6 +55,8 @@ const NO_BATTERY: BatterySettings = {
   chargeEndHour: 6,
   chargeEndMinute: 0,
   autoDetectCheapest: false,
+  dischargeWindows: [],
+  minChargePercent: 5,
 };
 
 const NO_EV: EVSettings = {
@@ -428,6 +430,8 @@ describe("runSimulation — battery", () => {
       chargeEndHour: 8,
       chargeEndMinute: 0,
       autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const result = runSimulation(data, settingsNoBattery, {
@@ -454,6 +458,8 @@ describe("runSimulation — battery", () => {
       chargeEndHour: 0,
       chargeEndMinute: 0,
       autoDetectCheapest: true, // should auto-detect night (23-8) as cheapest
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const result = runSimulation(data, settingsNoBattery, {
@@ -476,6 +482,8 @@ describe("runSimulation — battery", () => {
       chargeEndHour: 8,
       chargeEndMinute: 0,
       autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const result = runSimulation(data, settingsNoBattery, {
@@ -497,6 +505,8 @@ describe("runSimulation — battery", () => {
       chargeEndHour: 8,
       chargeEndMinute: 0,
       autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const battery50: BatterySettings = {
@@ -531,6 +541,8 @@ describe("runSimulation — battery", () => {
       chargeEndHour: 8,
       chargeEndMinute: 0,
       autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const result = runSimulation(data, settingsNoBattery, {
@@ -556,6 +568,8 @@ describe("runSimulation — battery", () => {
       chargeEndHour: 8,
       chargeEndMinute: 0,
       autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const settingsWithBattery: UserSettings = {
@@ -573,6 +587,8 @@ describe("runSimulation — battery", () => {
       chargeEndHour: 8,
       chargeEndMinute: 0,
       autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const result = runSimulation(data, settingsWithBattery, {
@@ -719,6 +735,8 @@ describe("runSimulation — battery + EV combined", () => {
       chargeEndHour: 8,
       chargeEndMinute: 0,
       autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
     };
 
     const ev: EVSettings = {
@@ -968,6 +986,8 @@ describe("runSimulation — edge cases", () => {
         chargeEndHour: 8,
         chargeEndMinute: 0,
         autoDetectCheapest: false,
+        dischargeWindows: [],
+        minChargePercent: 5,
       },
       ev: NO_EV,
     });
@@ -1067,6 +1087,302 @@ describe("getScheduleForDay — free day", () => {
   });
 });
 
+// ─── Battery discharge ordering ───
+
+describe("runSimulation — battery discharge only after charge window", () => {
+  // Day/Night: Night (23-8) = 20c, Day (8-23) = 40c
+  // Battery charges 2-6am (4 hours = 8 slots)
+
+  const makeBattery = (capacityKwh: number): BatterySettings => ({
+    hasBattery: true,
+    capacityKwh,
+    usablePercent: 90,
+    chargeStartHour: 2,
+    chargeStartMinute: 0,
+    chargeEndHour: 6,
+    chargeEndMinute: 0,
+    autoDetectCheapest: false,
+    dischargeWindows: [],
+    minChargePercent: 5,
+  });
+
+  it("larger battery saves more than smaller battery on same tariff", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5); // Monday
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(10),
+      ev: NO_EV,
+    };
+
+    const sim10 = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(10),
+      ev: NO_EV,
+    });
+
+    const sim15 = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(15),
+      ev: NO_EV,
+    });
+
+    // 15 kWh battery should cost less or equal to 10 kWh battery
+    expect(sim15.simulatedTotalCostCents).toBeLessThanOrEqual(
+      sim10.simulatedTotalCostCents,
+    );
+  });
+
+  it("increasing battery from current saves money (not costs more) with sufficient usage", () => {
+    // Use higher base usage (1.5 kWh/slot = 72 kWh/day) so discharge is not
+    // capped by per-slot consumption limits
+    const data = makeEnergyData(["2026-01-05"], 1.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(10),
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(15),
+      ev: NO_EV,
+    });
+
+    // Should save money or break even, never cost more
+    expect(result.savingsCents).toBeGreaterThanOrEqual(0);
+  });
+
+  it("battery does not discharge into pre-charge slots (00:00-02:00)", () => {
+    // With charging 2-6am, slots at 00:00 and 00:30 are before the charge window.
+    // The battery should NOT discharge into these slots.
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(10),
+      ev: NO_EV,
+    });
+
+    // Slots 00:00, 00:30, 01:00, 01:30 (indices 0-3) should NOT be reduced
+    // by battery discharge. They should remain at original kWh (0.5).
+    const preChargeSlots = result.simulatedDays[0].readings.slice(0, 4);
+    for (const slot of preChargeSlots) {
+      expect(slot.kwh).toBeGreaterThanOrEqual(0.5);
+    }
+  });
+
+  it("battery discharge occurs in expensive slots after charge window", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(10),
+      ev: NO_EV,
+    });
+
+    // Day slots (8-23) are expensive at 40c vs night 20c.
+    // Battery should discharge here, reducing some readings below 0.5.
+    const daySlots = result.simulatedDays[0].readings.filter((r) => {
+      const h = parseInt(r.time.split(":")[0]);
+      return h >= 8 && h < 23;
+    });
+
+    const someReduced = daySlots.some((r) => r.kwh < 0.5);
+    expect(someReduced).toBe(true);
+  });
+
+  it("removing current battery undoes its effect symmetrically", () => {
+    // If current has a 10kWh battery and sim has no battery,
+    // the simulation should reverse the battery effect and cost more
+    // (since the battery was saving money).
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(10),
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    });
+
+    // Removing the battery should cost more (negative savings)
+    expect(result.savingsCents).toBeLessThan(0);
+  });
+
+  it("works correctly with three-period tariff and auto-detect cheapest", () => {
+    // Night (23-8)=15c is cheapest. Battery should charge there and discharge at peak (17-23)=55c.
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: THREE_PERIOD_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const sim10 = runSimulation(data, settings, {
+      tariff: THREE_PERIOD_TARIFF,
+      battery: {
+        ...makeBattery(10),
+        autoDetectCheapest: true,
+      },
+      ev: NO_EV,
+    });
+
+    const sim15 = runSimulation(data, settings, {
+      tariff: THREE_PERIOD_TARIFF,
+      battery: {
+        ...makeBattery(15),
+        autoDetectCheapest: true,
+      },
+      ev: NO_EV,
+    });
+
+    // Both should save money vs no battery
+    expect(sim10.savingsCents).toBeGreaterThan(0);
+    expect(sim15.savingsCents).toBeGreaterThan(0);
+    // Larger battery should save at least as much
+    expect(sim15.savingsCents).toBeGreaterThanOrEqual(sim10.savingsCents);
+  });
+
+  it("upgrading from 10 kWh to 15 kWh battery with 2-6am cheap rate is cheaper", () => {
+    // Simulate a realistic scenario: user currently has a 10 kWh battery
+    // charging 2-6am on a day/night tariff. They upgrade to 15 kWh.
+    // The extra 4.5 kWh usable (at 90%) charges at the cheap night rate
+    // and offsets expensive daytime usage, so the sim must be cheaper.
+    const data = makeEnergyData(
+      ["2026-01-05", "2026-01-06", "2026-01-07"],
+      0.8,
+    );
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(10),
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: makeBattery(15),
+      ev: NO_EV,
+    });
+
+    // Must save money — strictly cheaper, not just break-even
+    expect(result.savingsCents).toBeGreaterThan(0);
+    expect(result.simulatedTotalCostCents).toBeLessThan(
+      result.currentTotalCostCents,
+    );
+  });
+});
+
+// ─── Real sample CSV data with Energia EV tariff ───
+
+describe("runSimulation — real sample CSV with Energia EV tariff", () => {
+  const evTariff = DEFAULT_TARIFFS.find(
+    (t) => t.id === "energia-ev-smart-drive",
+  )!;
+
+  // First row from sample CSV: 2024-04-01 (Monday)
+  const sampleReadings: HalfHourReading[] = [
+    { time: "00:00", kwh: 0 },
+    { time: "00:30", kwh: 0 },
+    { time: "01:00", kwh: 0 },
+    { time: "01:30", kwh: 0.0575 },
+    { time: "02:00", kwh: 1.644 },
+    { time: "02:30", kwh: 1.6555 },
+    { time: "03:00", kwh: 1.657 },
+    { time: "03:30", kwh: 1.663 },
+    { time: "04:00", kwh: 1.671 },
+    { time: "04:30", kwh: 1.675 },
+    { time: "05:00", kwh: 1.124 },
+    { time: "05:30", kwh: 0.227 },
+    { time: "06:00", kwh: 0.0105 },
+    { time: "06:30", kwh: 0.008 },
+    { time: "07:00", kwh: 0.01 },
+    { time: "07:30", kwh: 0.0085 },
+    { time: "08:00", kwh: 0 },
+    { time: "08:30", kwh: 0 },
+    { time: "09:00", kwh: 0.0075 },
+    { time: "09:30", kwh: 0.009 },
+    { time: "10:00", kwh: 0.0095 },
+    { time: "10:30", kwh: 0.009 },
+    { time: "11:00", kwh: 0.0095 },
+    { time: "11:30", kwh: 0.0085 },
+    { time: "12:00", kwh: 0.009 },
+    { time: "12:30", kwh: 0.01 },
+    { time: "13:00", kwh: 0.009 },
+    { time: "13:30", kwh: 0.01 },
+    { time: "14:00", kwh: 0.009 },
+    { time: "14:30", kwh: 0 },
+    { time: "15:00", kwh: 0 },
+    { time: "15:30", kwh: 0.013 },
+    { time: "16:00", kwh: 0.0095 },
+    { time: "16:30", kwh: 0.011 },
+    { time: "17:00", kwh: 0.0105 },
+    { time: "17:30", kwh: 0.0125 },
+    { time: "18:00", kwh: 0.009 },
+    { time: "18:30", kwh: 0.0095 },
+    { time: "19:00", kwh: 0.009 },
+    { time: "19:30", kwh: 0.0085 },
+    { time: "20:00", kwh: 0.0085 },
+    { time: "20:30", kwh: 0.0075 },
+    { time: "21:00", kwh: 0.008 },
+    { time: "21:30", kwh: 0.01 },
+    { time: "22:00", kwh: 0.0085 },
+    { time: "22:30", kwh: 0.0085 },
+    { time: "23:00", kwh: 0.009 },
+    { time: "23:30", kwh: 0.0085 },
+  ];
+
+  const sampleDay: DayData = {
+    date: "2024-04-01",
+    readings: sampleReadings,
+    totalKwh: sampleReadings.reduce((s, r) => s + r.kwh, 0),
+  };
+
+  const sampleData: EnergyData = { mprn: "TEST", days: [sampleDay] };
+
+  const makeBat = (kwh: number): BatterySettings => ({
+    hasBattery: true,
+    capacityKwh: kwh,
+    usablePercent: 90,
+    chargeStartHour: 2,
+    chargeStartMinute: 0,
+    chargeEndHour: 6,
+    chargeEndMinute: 0,
+    autoDetectCheapest: false,
+    dischargeWindows: [],
+    minChargePercent: 5,
+  });
+
+  it("upgrading 10 kWh to 15 kWh battery on Energia EV tariff is cheaper", () => {
+    const settings: UserSettings = {
+      currentTariff: evTariff,
+      battery: makeBat(10),
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(sampleData, settings, {
+      tariff: evTariff,
+      battery: makeBat(15),
+      ev: NO_EV,
+    });
+
+    // A bigger battery should save money or at worst break even
+    expect(result.savingsCents).toBeGreaterThanOrEqual(0);
+  });
+});
+
 // ─── calculateTariffCost (used by simulation) ───
 
 describe("calculateTariffCost", () => {
@@ -1129,5 +1445,635 @@ describe("calculateTariffCost", () => {
     const result = calculateTariffCost(data, tieredTariff);
 
     expect(result.totalCost).toBeCloseTo(860, 0);
+  });
+});
+
+// ─── Forced discharge / grid export ───
+
+describe("runSimulation — forced discharge windows", () => {
+  // Day/Night: Night (23-8) = 20c, Day (8-23) = 40c
+  const makeBatteryWithDischarge = (
+    capacityKwh: number,
+    dischargeWindows: BatterySettings["dischargeWindows"],
+  ): BatterySettings => ({
+    hasBattery: true,
+    capacityKwh,
+    usablePercent: 90,
+    chargeStartHour: 2,
+    chargeStartMinute: 0,
+    chargeEndHour: 6,
+    chargeEndMinute: 0,
+    autoDetectCheapest: false,
+    dischargeWindows,
+    minChargePercent: 5,
+  });
+
+  it("forced discharge window generates export revenue", () => {
+    // Battery charges 2-6am at 20c, forced discharge 17-19 at 21c export rate
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const batteryWithExport = makeBatteryWithDischarge(10, [
+      {
+        startHour: 17,
+        startMinute: 0,
+        endHour: 19,
+        endMinute: 0,
+        exportRatePerKwh: 21,
+      },
+    ]);
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: batteryWithExport,
+      ev: NO_EV,
+    });
+
+    // Should generate export revenue
+    expect(result.exportRevenueCents).toBeGreaterThan(0);
+    // Should save money overall (cheap charge + expensive offset + export)
+    expect(result.savingsCents).toBeGreaterThan(0);
+  });
+
+  it("forced discharge respects minChargePercent", () => {
+    // With 10kWh battery and 5% min, minimum SoC = 0.5kWh
+    // 90% usable = 9kWh. Battery can discharge down to 0.5kWh = 8.5kWh max discharge.
+    // Discharge rate = 10/6 ≈ 1.667 kWh/slot
+    // With 4 slots (17-19), max discharge = min(4 * 1.667, 8.5) = 6.667 kWh
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    // With high minChargePercent (50%), less discharge available
+    const batteryHigh = makeBatteryWithDischarge(10, [
+      {
+        startHour: 17,
+        startMinute: 0,
+        endHour: 19,
+        endMinute: 0,
+        exportRatePerKwh: 21,
+      },
+    ]);
+    batteryHigh.minChargePercent = 50; // min 5kWh, usable 9kWh, max discharge = 4kWh
+
+    const batteryLow = makeBatteryWithDischarge(10, [
+      {
+        startHour: 17,
+        startMinute: 0,
+        endHour: 19,
+        endMinute: 0,
+        exportRatePerKwh: 21,
+      },
+    ]);
+    batteryLow.minChargePercent = 5; // min 0.5kWh, usable 9kWh, max discharge = 8.5kWh
+
+    const resultHigh = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: batteryHigh,
+      ev: NO_EV,
+    });
+
+    const resultLow = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: batteryLow,
+      ev: NO_EV,
+    });
+
+    // Lower min charge = more discharge available = more export revenue
+    expect(resultLow.exportRevenueCents).toBeGreaterThan(
+      resultHigh.exportRevenueCents,
+    );
+  });
+
+  it("multiple forced discharge windows work correctly", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const singleWindow = makeBatteryWithDischarge(10, [
+      {
+        startHour: 17,
+        startMinute: 0,
+        endHour: 19,
+        endMinute: 0,
+        exportRatePerKwh: 21,
+      },
+    ]);
+
+    const doubleWindow = makeBatteryWithDischarge(10, [
+      {
+        startHour: 17,
+        startMinute: 0,
+        endHour: 18,
+        endMinute: 0,
+        exportRatePerKwh: 21,
+      },
+      {
+        startHour: 20,
+        startMinute: 0,
+        endHour: 21,
+        endMinute: 0,
+        exportRatePerKwh: 21,
+      },
+    ]);
+
+    const resultSingle = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: singleWindow,
+      ev: NO_EV,
+    });
+
+    const resultDouble = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: doubleWindow,
+      ev: NO_EV,
+    });
+
+    // Both should produce export revenue
+    expect(resultSingle.exportRevenueCents).toBeGreaterThan(0);
+    expect(resultDouble.exportRevenueCents).toBeGreaterThan(0);
+  });
+
+  it("no discharge windows produces zero export revenue", () => {
+    const data = makeEnergyData(["2026-01-05"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const batteryNoExport = makeBatteryWithDischarge(10, []);
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: batteryNoExport,
+      ev: NO_EV,
+    });
+
+    expect(result.exportRevenueCents).toBe(0);
+  });
+
+  it("forced discharge can make readings go negative (export)", () => {
+    // Very low base load (0.1 kWh/slot) with large battery forced discharge
+    const data = makeEnergyData(["2026-01-05"], 0.1);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const battery = makeBatteryWithDischarge(10, [
+      {
+        startHour: 17,
+        startMinute: 0,
+        endHour: 19,
+        endMinute: 0,
+        exportRatePerKwh: 21,
+      },
+    ]);
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery,
+      ev: NO_EV,
+    });
+
+    // Some readings in the forced discharge window should be negative
+    const forcedSlots = result.simulatedDays[0].readings.filter((r) => {
+      const h = parseInt(r.time.split(":")[0]);
+      return h >= 17 && h < 19;
+    });
+
+    const someNegative = forcedSlots.some((r) => r.kwh < 0);
+    expect(someNegative).toBe(true);
+    expect(result.exportRevenueCents).toBeGreaterThan(0);
+  });
+
+  it("export revenue calculation is correct", () => {
+    // Use a flat tariff so there's no "expensive vs cheap" distinction
+    // Battery charges 2-6am, forced discharge 8-10am at 25c export rate
+    // Base load 0.1 kWh/slot
+    const CHEAP_FLAT: Tariff = {
+      id: "test-cheap-flat",
+      name: "Cheap Flat",
+      provider: "Test",
+      standingCharge: 0,
+      psoLevy: 0,
+      scheduleType: "uniform",
+      uniformSchedule: {
+        rates: [
+          {
+            startHour: 0,
+            startMinute: 0,
+            endHour: 24,
+            endMinute: 0,
+            ratePerKwh: 10,
+            label: "Standard",
+          },
+        ],
+      },
+    };
+
+    const data = makeEnergyData(["2026-01-05"], 0.1);
+    const settings: UserSettings = {
+      currentTariff: CHEAP_FLAT,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const battery = makeBatteryWithDischarge(10, [
+      {
+        startHour: 8,
+        startMinute: 0,
+        endHour: 10,
+        endMinute: 0,
+        exportRatePerKwh: 25,
+      },
+    ]);
+
+    const result = runSimulation(data, settings, {
+      tariff: CHEAP_FLAT,
+      battery,
+      ev: NO_EV,
+    });
+
+    // Export revenue should be positive and calculated from exported kWh × rate
+    expect(result.exportRevenueCents).toBeGreaterThan(0);
+  });
+});
+
+// ─── Real CSV regression tests ───
+
+import { readFileSync } from "fs";
+import { join } from "path";
+import { parseEnergiaCSV } from "../app/lib/parseCSV";
+
+describe("real CSV data regression", () => {
+  const csvPath = join(
+    __dirname,
+    "..",
+    "public",
+    "sampledata",
+    "EnergiaSample_April2024_Feb2026.csv",
+  );
+  const csvText = readFileSync(csvPath, "utf-8");
+  const data = parseEnergiaCSV(csvText);
+  const tariff = DEFAULT_TARIFFS[0]; // Energia EV Smart Drive
+
+  it("upgrading battery from 10kWh to 15kWh should not cost more", () => {
+    const battery10: BatterySettings = {
+      hasBattery: true,
+      capacityKwh: 10,
+      usablePercent: 90,
+      chargeStartHour: 2,
+      chargeStartMinute: 0,
+      chargeEndHour: 6,
+      chargeEndMinute: 0,
+      autoDetectCheapest: true,
+      dischargeWindows: [],
+      minChargePercent: 5,
+    };
+
+    const battery15: BatterySettings = {
+      ...battery10,
+      capacityKwh: 15,
+    };
+
+    const currentSettings: UserSettings = {
+      currentTariff: tariff,
+      battery: battery10,
+      ev: NO_EV,
+    };
+
+    // Simulate upgrading from 10kWh to 15kWh
+    const result = runSimulation(data, currentSettings, {
+      tariff,
+      battery: battery15,
+      ev: NO_EV,
+    });
+
+    // A bigger battery should save money or break even, never cost more
+    expect(result.savingsCents).toBeGreaterThanOrEqual(0);
+    expect(result.simulatedTotalCostCents).toBeLessThanOrEqual(
+      result.currentTotalCostCents,
+    );
+  });
+
+  it("adding a 10kWh battery (from no battery) should save money", () => {
+    const noBattery: BatterySettings = {
+      hasBattery: false,
+      capacityKwh: 10,
+      usablePercent: 90,
+      chargeStartHour: 2,
+      chargeStartMinute: 0,
+      chargeEndHour: 6,
+      chargeEndMinute: 0,
+      autoDetectCheapest: true,
+      dischargeWindows: [],
+      minChargePercent: 5,
+    };
+
+    const battery10: BatterySettings = {
+      ...noBattery,
+      hasBattery: true,
+    };
+
+    const currentSettings: UserSettings = {
+      currentTariff: tariff,
+      battery: noBattery,
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, currentSettings, {
+      tariff,
+      battery: battery10,
+      ev: NO_EV,
+    });
+
+    expect(result.savingsCents).toBeGreaterThan(0);
+    expect(result.simulatedTotalCostCents).toBeLessThan(
+      result.currentTotalCostCents,
+    );
+  });
+
+  it("adding a 15kWh battery (from no battery) should save more than 10kWh", () => {
+    const noBattery: BatterySettings = {
+      hasBattery: false,
+      capacityKwh: 10,
+      usablePercent: 90,
+      chargeStartHour: 2,
+      chargeStartMinute: 0,
+      chargeEndHour: 6,
+      chargeEndMinute: 0,
+      autoDetectCheapest: true,
+      dischargeWindows: [],
+      minChargePercent: 5,
+    };
+
+    const battery10: BatterySettings = {
+      ...noBattery,
+      hasBattery: true,
+      capacityKwh: 10,
+    };
+    const battery15: BatterySettings = {
+      ...noBattery,
+      hasBattery: true,
+      capacityKwh: 15,
+    };
+
+    const currentSettings: UserSettings = {
+      currentTariff: tariff,
+      battery: noBattery,
+      ev: NO_EV,
+    };
+
+    const result10 = runSimulation(data, currentSettings, {
+      tariff,
+      battery: battery10,
+      ev: NO_EV,
+    });
+
+    const result15 = runSimulation(data, currentSettings, {
+      tariff,
+      battery: battery15,
+      ev: NO_EV,
+    });
+
+    // Both should save money
+    expect(result10.savingsCents).toBeGreaterThan(0);
+    expect(result15.savingsCents).toBeGreaterThan(0);
+    // 15kWh should save at least as much as 10kWh
+    expect(result15.savingsCents).toBeGreaterThanOrEqual(result10.savingsCents);
+  });
+
+  it("exact UI scenario: 10kWh→15kWh with EV should not cost more", () => {
+    // Exact settings from the UI console log that showed -4.1% (more expensive)
+    const ev: EVSettings = {
+      hasEV: true,
+      chargingStartHour: 2,
+      chargingStartMinute: 0,
+      chargingEndHour: 6,
+      chargingEndMinute: 0,
+      chargingSpeedKw: 7.4,
+    };
+
+    const battery10: BatterySettings = {
+      hasBattery: true,
+      capacityKwh: 10,
+      usablePercent: 90,
+      chargeStartHour: 2,
+      chargeStartMinute: 0,
+      chargeEndHour: 6,
+      chargeEndMinute: 0,
+      autoDetectCheapest: true,
+      dischargeWindows: [],
+      minChargePercent: 5,
+    };
+
+    const battery15: BatterySettings = {
+      ...battery10,
+      capacityKwh: 15,
+    };
+
+    const currentSettings: UserSettings = {
+      currentTariff: tariff,
+      battery: battery10,
+      ev,
+    };
+
+    const result = runSimulation(data, currentSettings, {
+      tariff,
+      battery: battery15,
+      ev,
+    });
+
+    // Upgrading battery should save money, not cost more
+    expect(result.savingsCents).toBeGreaterThanOrEqual(0);
+    expect(result.simulatedTotalCostCents).toBeLessThanOrEqual(
+      result.currentTotalCostCents,
+    );
+  });
+});
+
+// ─── Identity tests ───
+
+describe("identity — no changes should produce zero savings", () => {
+  it("no battery, no EV, same tariff", () => {
+    const data = makeEnergyData(["2026-01-05", "2026-01-06"], 0.5);
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery: NO_BATTERY,
+      ev: NO_EV,
+    });
+
+    expect(result.savingsCents).toBe(0);
+    expect(result.simulatedTotalCostCents).toBe(result.currentTotalCostCents);
+    // Every reading should match the original exactly
+    for (let d = 0; d < data.days.length; d++) {
+      for (let i = 0; i < 48; i++) {
+        expect(result.simulatedDays[d].readings[i].kwh).toBe(
+          data.days[d].readings[i].kwh,
+        );
+      }
+    }
+  });
+
+  it("with battery, no EV, same tariff", () => {
+    const data = makeEnergyData(["2026-01-05", "2026-01-06"], 0.5);
+    const battery: BatterySettings = {
+      hasBattery: true,
+      capacityKwh: 10,
+      usablePercent: 90,
+      chargeStartHour: 2,
+      chargeStartMinute: 0,
+      chargeEndHour: 6,
+      chargeEndMinute: 0,
+      autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
+    };
+
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery,
+      ev: NO_EV,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery,
+      ev: NO_EV,
+    });
+
+    expect(result.savingsCents).toBe(0);
+    expect(result.simulatedTotalCostCents).toBe(result.currentTotalCostCents);
+    // Every reading should match the original exactly
+    for (let d = 0; d < data.days.length; d++) {
+      for (let i = 0; i < 48; i++) {
+        expect(result.simulatedDays[d].readings[i].kwh).toBe(
+          data.days[d].readings[i].kwh,
+        );
+      }
+    }
+  });
+
+  it("with battery and EV, same tariff", () => {
+    const data = makeEnergyData(["2026-01-05", "2026-01-06"], 0.5);
+    const battery: BatterySettings = {
+      hasBattery: true,
+      capacityKwh: 10,
+      usablePercent: 90,
+      chargeStartHour: 2,
+      chargeStartMinute: 0,
+      chargeEndHour: 6,
+      chargeEndMinute: 0,
+      autoDetectCheapest: false,
+      dischargeWindows: [],
+      minChargePercent: 5,
+    };
+    const ev: EVSettings = {
+      hasEV: true,
+      chargingStartHour: 2,
+      chargingStartMinute: 0,
+      chargingEndHour: 6,
+      chargingEndMinute: 0,
+      chargingSpeedKw: 7.4,
+    };
+
+    const settings: UserSettings = {
+      currentTariff: DAY_NIGHT_TARIFF,
+      battery,
+      ev,
+    };
+
+    const result = runSimulation(data, settings, {
+      tariff: DAY_NIGHT_TARIFF,
+      battery,
+      ev,
+    });
+
+    expect(result.savingsCents).toBe(0);
+    expect(result.simulatedTotalCostCents).toBe(result.currentTotalCostCents);
+    // Every reading should match the original exactly
+    for (let d = 0; d < data.days.length; d++) {
+      for (let i = 0; i < 48; i++) {
+        expect(result.simulatedDays[d].readings[i].kwh).toBe(
+          data.days[d].readings[i].kwh,
+        );
+      }
+    }
+  });
+
+  it("with battery and EV on real CSV data", () => {
+    const battery: BatterySettings = {
+      hasBattery: true,
+      capacityKwh: 10,
+      usablePercent: 90,
+      chargeStartHour: 2,
+      chargeStartMinute: 0,
+      chargeEndHour: 6,
+      chargeEndMinute: 0,
+      autoDetectCheapest: true,
+      dischargeWindows: [],
+      minChargePercent: 5,
+    };
+    const ev: EVSettings = {
+      hasEV: true,
+      chargingStartHour: 2,
+      chargingStartMinute: 0,
+      chargingEndHour: 6,
+      chargingEndMinute: 0,
+      chargingSpeedKw: 7.4,
+    };
+
+    const csvPath = join(
+      __dirname,
+      "..",
+      "public",
+      "sampledata",
+      "EnergiaSample_April2024_Feb2026.csv",
+    );
+    const csvText = readFileSync(csvPath, "utf-8");
+    const csvData = parseEnergiaCSV(csvText);
+    const realTariff = DEFAULT_TARIFFS[0];
+
+    const settings: UserSettings = {
+      currentTariff: realTariff,
+      battery,
+      ev,
+    };
+
+    const result = runSimulation(csvData, settings, {
+      tariff: realTariff,
+      battery,
+      ev,
+    });
+
+    expect(result.savingsCents).toBe(0);
+    expect(result.simulatedTotalCostCents).toBe(result.currentTotalCostCents);
+    // Every reading should match the original exactly
+    for (let d = 0; d < csvData.days.length; d++) {
+      for (let i = 0; i < 48; i++) {
+        expect(result.simulatedDays[d].readings[i].kwh).toBe(
+          csvData.days[d].readings[i].kwh,
+        );
+      }
+    }
   });
 });

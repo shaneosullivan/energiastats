@@ -229,6 +229,176 @@ export default function SettingsPanel({ settings, onSettingsChange }: Props) {
                 </div>
               )}
             </div>
+
+            <div>
+              <label className="text-xs text-gray-500">
+                Minimum Charge: {battery.minChargePercent ?? 5}%
+              </label>
+              <input
+                type="range"
+                value={battery.minChargePercent ?? 5}
+                onChange={(e) =>
+                  setBattery({
+                    ...battery,
+                    minChargePercent: parseInt(e.target.value),
+                  })
+                }
+                className="w-full mt-1"
+                min="0"
+                max="50"
+                step="1"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400">
+                <span>0%</span>
+                <span className="font-medium text-gray-600">
+                  {(
+                    (battery.capacityKwh * (battery.minChargePercent ?? 5)) /
+                    100
+                  ).toFixed(1)}{" "}
+                  kWh reserved
+                </span>
+                <span>50%</span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-gray-500">
+                  Forced Discharge / Grid Export
+                </label>
+                <button
+                  onClick={() =>
+                    setBattery({
+                      ...battery,
+                      dischargeWindows: [
+                        ...(battery.dischargeWindows ?? []),
+                        {
+                          startHour: 17,
+                          startMinute: 0,
+                          endHour: 19,
+                          endMinute: 0,
+                          exportRatePerKwh: 21,
+                        },
+                      ],
+                    })
+                  }
+                  className="text-xs text-blue-600 hover:text-blue-800"
+                >
+                  + Add Window
+                </button>
+              </div>
+
+              {(battery.dischargeWindows ?? []).length === 0 && (
+                <p className="text-xs text-gray-400 italic">
+                  No forced discharge windows configured.
+                </p>
+              )}
+
+              {(battery.dischargeWindows ?? []).map((dw, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 mb-2 bg-gray-50 rounded-lg p-2"
+                >
+                  <select
+                    value={dw.startHour}
+                    onChange={(e) => {
+                      const windows = [...(battery.dischargeWindows ?? [])];
+                      windows[idx] = {
+                        ...dw,
+                        startHour: parseInt(e.target.value),
+                      };
+                      setBattery({ ...battery, dischargeWindows: windows });
+                    }}
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <option key={h} value={h}>
+                        {h.toString().padStart(2, "0")}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-gray-400">:</span>
+                  <select
+                    value={dw.startMinute}
+                    onChange={(e) => {
+                      const windows = [...(battery.dischargeWindows ?? [])];
+                      windows[idx] = {
+                        ...dw,
+                        startMinute: parseInt(e.target.value),
+                      };
+                      setBattery({ ...battery, dischargeWindows: windows });
+                    }}
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    <option value={0}>00</option>
+                    <option value={30}>30</option>
+                  </select>
+                  <span className="text-xs text-gray-400">to</span>
+                  <select
+                    value={dw.endHour}
+                    onChange={(e) => {
+                      const windows = [...(battery.dischargeWindows ?? [])];
+                      windows[idx] = {
+                        ...dw,
+                        endHour: parseInt(e.target.value),
+                      };
+                      setBattery({ ...battery, dischargeWindows: windows });
+                    }}
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    {Array.from({ length: 25 }, (_, h) => (
+                      <option key={h} value={h}>
+                        {h.toString().padStart(2, "0")}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-gray-400">:</span>
+                  <select
+                    value={dw.endMinute}
+                    onChange={(e) => {
+                      const windows = [...(battery.dischargeWindows ?? [])];
+                      windows[idx] = {
+                        ...dw,
+                        endMinute: parseInt(e.target.value),
+                      };
+                      setBattery({ ...battery, dischargeWindows: windows });
+                    }}
+                    className="border border-gray-200 rounded px-2 py-1 text-xs"
+                  >
+                    <option value={0}>00</option>
+                    <option value={30}>30</option>
+                  </select>
+                  <span className="text-xs text-gray-400">@</span>
+                  <input
+                    type="number"
+                    value={dw.exportRatePerKwh}
+                    onChange={(e) => {
+                      const windows = [...(battery.dischargeWindows ?? [])];
+                      windows[idx] = {
+                        ...dw,
+                        exportRatePerKwh: parseFloat(e.target.value) || 0,
+                      };
+                      setBattery({ ...battery, dischargeWindows: windows });
+                    }}
+                    className="w-16 border border-gray-200 rounded px-2 py-1 text-xs"
+                    min="0"
+                    step="0.01"
+                  />
+                  <span className="text-xs text-gray-400">c/kWh</span>
+                  <button
+                    onClick={() => {
+                      const windows = (battery.dischargeWindows ?? []).filter(
+                        (_, i) => i !== idx,
+                      );
+                      setBattery({ ...battery, dischargeWindows: windows });
+                    }}
+                    className="text-red-400 hover:text-red-600 text-xs ml-auto"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

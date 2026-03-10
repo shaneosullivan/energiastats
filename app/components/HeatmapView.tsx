@@ -76,18 +76,66 @@ const TIME_SLOTS = [
 
 const USAGE_SCALE = [
   "#f9fafb",
-  "#dbeafe",
-  "#93c5fd",
-  "#3b82f6",
-  "#1d4ed8",
+  "#f4f7fc",
+  "#eff4fc",
+  "#e9f2fd",
+  "#e4effd",
+  "#dfecfe",
+  "#d9e9fe",
+  "#cce2fe",
+  "#c0dcfe",
+  "#b3d6fd",
+  "#a7cffd",
+  "#9ac9fd",
+  "#8dc0fd",
+  "#7eb5fb",
+  "#6fa9fa",
+  "#5f9ef9",
+  "#5092f8",
+  "#4187f6",
+  "#387df3",
+  "#3374ee",
+  "#2e6be9",
+  "#2862e3",
+  "#2359de",
+  "#1e50d9",
+  "#1d4bc7",
+  "#1d48b2",
+  "#1d449e",
+  "#1e4189",
+  "#1e3d74",
   "#1e3a5f",
 ];
 const COST_SCALE = [
   "#f9fafb",
-  "#dcfce7",
-  "#86efac",
-  "#22c55e",
-  "#15803d",
+  "#f4faf8",
+  "#effbf4",
+  "#eafbf1",
+  "#e5fbed",
+  "#e0fcea",
+  "#d9fce5",
+  "#caf9db",
+  "#bbf7d1",
+  "#adf5c6",
+  "#9ef3bc",
+  "#8ff0b2",
+  "#7feca7",
+  "#6ee599",
+  "#5dde8c",
+  "#4bd67e",
+  "#3acf71",
+  "#29c863",
+  "#21be5b",
+  "#1eb255",
+  "#1ca64f",
+  "#1a9a4a",
+  "#188e44",
+  "#15823e",
+  "#157a3b",
+  "#157238",
+  "#156a35",
+  "#146333",
+  "#145b30",
   "#14532d",
 ];
 
@@ -96,19 +144,11 @@ function getScaledColor(value: number, max: number, scale: string[]): string {
     return scale[0];
   }
   const intensity = Math.min(value / max, 1);
-  if (intensity < 0.2) {
-    return scale[1];
-  }
-  if (intensity < 0.4) {
-    return scale[2];
-  }
-  if (intensity < 0.6) {
-    return scale[3];
-  }
-  if (intensity < 0.8) {
-    return scale[4];
-  }
-  return scale[5];
+  const idx = Math.min(
+    Math.ceil(intensity * (scale.length - 1)),
+    scale.length - 1,
+  );
+  return scale[idx];
 }
 
 export default function HeatmapView({ data, currentTariff }: Props) {
@@ -235,49 +275,66 @@ export default function HeatmapView({ data, currentTariff }: Props) {
           </div>
 
           {/* Rows */}
-          {data.days.map((day, dayIdx) => {
-            const dayCosts = costGrid[dayIdx];
-            const dayTotalCost = dayCosts
-              ? dayCosts.reduce((s, c) => s + c, 0)
-              : 0;
-            return (
-              <div key={day.date} className="flex items-center mb-px">
-                <div className="w-24 shrink-0 text-[10px] text-gray-500 pr-2 text-right truncate">
-                  {format(parseISO(day.date), "EEE dd MMM")}
+          {(() => {
+            let lastYear = "";
+            return data.days.map((day, dayIdx) => {
+              const dayCosts = costGrid[dayIdx];
+              const dayTotalCost = dayCosts
+                ? dayCosts.reduce((s, c) => s + c, 0)
+                : 0;
+              const date = parseISO(day.date);
+              const year = format(date, "yyyy");
+              const showYear = year !== lastYear;
+              if (showYear) {
+                lastYear = year;
+              }
+              return (
+                <div key={day.date} className="flex items-center mb-px">
+                  <div className="w-24 shrink-0 text-[10px] text-gray-500 pr-2 text-right truncate">
+                    {showYear
+                      ? format(date, "yyyy EEE dd MMM")
+                      : format(date, "EEE dd MMM")}
+                  </div>
+                  <div className="flex-1 flex">
+                    {day.readings.map((r, i) => {
+                      const costCents = dayCosts?.[i] ?? 0;
+                      const cellValue = mode === "usage" ? r.kwh : costCents;
+                      const cellMax = mode === "usage" ? maxKwh : maxCost;
+                      return (
+                        <div
+                          key={i}
+                          className="flex-1 h-[18px] border-r border-b border-white/50"
+                          style={{
+                            backgroundColor: getScaledColor(
+                              cellValue,
+                              cellMax,
+                              scale,
+                            ),
+                            minWidth: 14,
+                          }}
+                          onMouseEnter={(e) =>
+                            handleCellEnter(
+                              e,
+                              day.date,
+                              r.time,
+                              r.kwh,
+                              costCents,
+                            )
+                          }
+                          onMouseLeave={handleCellLeave}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="w-16 shrink-0 text-right text-[10px] text-gray-500 pl-2">
+                    {mode === "usage"
+                      ? day.totalKwh.toFixed(1)
+                      : `€${(dayTotalCost / 100).toFixed(2)}`}
+                  </div>
                 </div>
-                <div className="flex-1 flex">
-                  {day.readings.map((r, i) => {
-                    const costCents = dayCosts?.[i] ?? 0;
-                    const cellValue = mode === "usage" ? r.kwh : costCents;
-                    const cellMax = mode === "usage" ? maxKwh : maxCost;
-                    return (
-                      <div
-                        key={i}
-                        className="flex-1 h-[18px] border-r border-b border-white/50"
-                        style={{
-                          backgroundColor: getScaledColor(
-                            cellValue,
-                            cellMax,
-                            scale,
-                          ),
-                          minWidth: 14,
-                        }}
-                        onMouseEnter={(e) =>
-                          handleCellEnter(e, day.date, r.time, r.kwh, costCents)
-                        }
-                        onMouseLeave={handleCellLeave}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="w-16 shrink-0 text-right text-[10px] text-gray-500 pl-2">
-                  {mode === "usage"
-                    ? day.totalKwh.toFixed(1)
-                    : `€${(dayTotalCost / 100).toFixed(2)}`}
-                </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
 
         {/* Tooltip */}
