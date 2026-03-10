@@ -94,7 +94,30 @@ function loadSettings(): UserSettings {
 }
 
 export default function Dashboard({ data, fileName, onReset }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      const validTabs = TABS.map((t) => t.key);
+      if (validTabs.includes(hash as Tab)) return hash as Tab;
+    }
+    return "overview";
+  });
+
+  // Sync tab to URL hash
+  useEffect(() => {
+    window.location.hash = activeTab;
+  }, [activeTab]);
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace("#", "");
+      const validTabs = TABS.map((t) => t.key);
+      if (validTabs.includes(hash as Tab)) setActiveTab(hash as Tab);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
   const [userSettings, setUserSettings] = useState<UserSettings>(loadSettings);
 
   // Persist settings to localStorage on change
