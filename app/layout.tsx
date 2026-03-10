@@ -31,9 +31,31 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
-        {children}
+        <div className="pb-12">{children}</div>
+        <footer className="fixed bottom-0 left-0 w-full border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400 z-30">
+          Created by{" "}
+          <a
+            href="https://chofter.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-gray-700 underline"
+          >
+            Shane O&apos;Sullivan
+          </a>
+          {" · "}
+          <a
+            href="https://github.com/shaneosullivan/energiastats"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-gray-700 underline"
+          >
+            Source
+          </a>
+          {" · "}
+          MIT License
+        </footer>
       </body>
     </html>
   );

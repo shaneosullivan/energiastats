@@ -165,23 +165,26 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
           </a>
           .
         </p>
+        <p className="mt-2">
+          <a
+            href="https://www.energia.ie"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-gray-700 underline"
+          >
+            Energia
+          </a>{" "}
+          is an electricity and gas supplier in Ireland. Smart meter customers
+          can download half-hourly usage data as a CSV file, which this tool
+          analyses to help you understand your consumption patterns, compare
+          tariffs, and simulate savings from batteries or EVs.
+        </p>
       </div>
 
       <div className="text-xs text-gray-400 max-w-md text-center border-t border-gray-200 pt-4">
         <p>
           Your data stays on your device. Nothing is sent to a server or stored
           in the cloud &mdash; all processing happens entirely in your browser.
-        </p>
-        <p className="mt-3">
-          Created by{" "}
-          <a
-            href="https://chofter.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-500 hover:text-gray-700 underline"
-          >
-            Shane O&apos;Sullivan
-          </a>
         </p>
       </div>
     </div>
