@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import FileUpload from "./components/FileUpload";
 import Dashboard from "./components/Dashboard";
 import { EnergyData } from "./lib/types";
-import { parseEnergiaCSV } from "./lib/parseCSV";
+import { parseCSV } from "./lib/parseCSV";
 
 const STORAGE_KEY_CSV = "energiainsights_csv";
 const STORAGE_KEY_FILENAME = "energiainsights_filename";
@@ -21,7 +21,7 @@ export default function Home() {
       const savedCsv = localStorage.getItem(STORAGE_KEY_CSV);
       const savedName = localStorage.getItem(STORAGE_KEY_FILENAME);
       if (savedCsv) {
-        const parsed = parseEnergiaCSV(savedCsv);
+        const parsed = parseCSV(savedCsv);
         if (parsed.days.length > 0) {
           setData(parsed);
           setFileName(savedName || "Saved data");
@@ -35,7 +35,7 @@ export default function Home() {
 
   const handleFileLoaded = useCallback((csvText: string, name: string) => {
     try {
-      const parsed = parseEnergiaCSV(csvText);
+      const parsed = parseCSV(csvText);
       if (parsed.days.length === 0) {
         setError(
           "No valid data found in the CSV file. Please check the file format.",

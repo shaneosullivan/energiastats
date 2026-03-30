@@ -73,18 +73,18 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
       <div className="text-center flex flex-col items-center">
         <Image
           src="/logo_500.png"
-          alt="Energia Insights"
+          alt="Irish Energy Insights"
           width={120}
           height={120}
           className="mb-4"
           priority
         />
         <h1 className="text-4xl font-bold text-gray-900 mb-3">
-          Energia Insights
+          Irish Energy Insights
         </h1>
         <p className="text-lg text-gray-500 max-w-lg">
-          Upload your Energia electricity usage CSV to get detailed insights,
-          comparisons, and cost analysis.
+          Upload your ESB or Energia electricity usage CSV to get detailed
+          insights, comparisons, and cost analysis.
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
           ) : (
             <>
               <p className="text-base font-medium text-gray-700">
-                Drop your Energia CSV file here
+                Drop your ESB or Energia CSV file here
               </p>
               <p className="text-sm text-gray-400">or click to browse</p>
             </>
@@ -162,6 +162,14 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
             rel="noopener noreferrer"
           >
             <strong>Energia online account</strong>
+          </a>{" "}
+          or from your{" "}
+          <a
+            href="https://myaccount.esbnetworks.ie/Api/HistoricConsumption"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <strong>ESB online account</strong>
           </a>
           .
         </p>

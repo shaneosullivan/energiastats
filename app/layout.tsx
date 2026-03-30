@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Energia Insights - Electricity Usage Dashboard",
+  title: "Irish Energy Insights - Electricity Usage Dashboard",
   description:
-    "Analyse your Energia electricity usage with detailed insights, comparisons, tariff analysis and energy-saving suggestions. Simulate savings from batteries and EVs. Free, open source, and fully private — your data never leaves your browser.",
+    "Analyse your Irish electricity usage with detailed insights, comparisons, tariff analysis and energy-saving suggestions. Simulate savings from batteries and EVs. Free, open source, and fully private — your data never leaves your browser.",
   icons: {
     icon: [{ url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" }],
     apple: "/apple-touch-icon.png",
@@ -23,19 +23,19 @@ export const metadata: Metadata = {
   manifest: "/favicon/site.webmanifest",
   metadataBase: new URL("https://energy.chofter.com"),
   openGraph: {
-    title: "Energia Insights",
+    title: "Irish Energy Insights",
     description:
-      "Analyse your Energia electricity usage with detailed insights, tariff comparisons, and battery & EV savings simulations. Free and private — your data stays on your device.",
+      "Analyse your Irish electricity usage with detailed insights, tariff comparisons, and battery & EV savings simulations. Free and private — your data stays on your device.",
     url: "https://energy.chofter.com",
-    siteName: "Energia Insights",
+    siteName: "Irish Energy Insights",
     locale: "en_IE",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Energia Insights",
+    title: "Irish Energy Insights",
     description:
-      "Analyse your Energia electricity usage with detailed insights, tariff comparisons, and battery & EV savings simulations. Free and private.",
+      "Analyse your Irish electricity usage with detailed insights, tariff comparisons, and battery & EV savings simulations. Free and private.",
   },
 };
 

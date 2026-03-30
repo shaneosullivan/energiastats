@@ -143,13 +143,13 @@ export default function Dashboard({ data, fileName, onReset }: Props) {
           <div className="flex items-center gap-3">
             <Image
               src="/logo_500.png"
-              alt="Energia Insights"
+              alt="Irish Energy Insights"
               width={32}
               height={32}
               className="rounded"
             />
             <h1 className="text-lg font-bold text-gray-900">
-              Energia Insights
+              Irish Energy Insights
             </h1>
             <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2.5 py-0.5">
               {fileName}

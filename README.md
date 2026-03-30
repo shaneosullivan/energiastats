@@ -1,4 +1,4 @@
-# Energia Insights
+# Irish Energy Insights
 
 A comprehensive electricity usage dashboard for Irish energy customers. Upload your half-hourly usage CSV from [Energia](https://www.energia.ie) and get detailed analytics, cost comparisons, and energy-saving recommendations — all running locally in your browser with no data sent to any server.
 

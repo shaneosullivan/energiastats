@@ -51,6 +51,63 @@ const TIME_SLOTS = [
   "23:30",
 ];
 
+export function parseCSV(csvText: string): EnergyData {
+  const firstLine = csvText.trim().split("\n")[0].trim();
+  if (firstLine.startsWith("MPRN,")) {
+    return parseESBCSV(csvText);
+  }
+  return parseEnergiaCSV(csvText);
+}
+
+function parseESBCSV(csvText: string): EnergyData {
+  const lines = csvText.trim().split("\n");
+  let mprn = "";
+  // Group import readings by date: Map<dateStr, Map<timeSlot, kwh>>
+  const dayMap = new Map<string, Map<string, number>>();
+
+  for (let i = 1; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+
+    const parts = trimmed.split(",");
+    if (parts.length < 5) continue;
+
+    if (!mprn) mprn = parts[0].trim();
+
+    const readType = parts[3].trim();
+    if (readType !== "Active Import Interval (kWh)") continue;
+
+    const kwh = parseFloat(parts[2]) || 0;
+    // Date format: DD-MM-YYYY HH:MM
+    const dateTimeParts = parts[4].trim().split(" ");
+    if (dateTimeParts.length < 2) continue;
+
+    const [day, month, year] = dateTimeParts[0].split("-");
+    const date = `${year}-${month}-${day}`;
+    const time = dateTimeParts[1]; // HH:MM
+
+    if (!dayMap.has(date)) {
+      dayMap.set(date, new Map<string, number>());
+    }
+    dayMap.get(date)!.set(time, kwh);
+  }
+
+  const days: DayData[] = [];
+  for (const [date, timeMap] of dayMap) {
+    const readings: HalfHourReading[] = [];
+    let totalKwh = 0;
+    for (const time of TIME_SLOTS) {
+      const kwh = timeMap.get(time) || 0;
+      readings.push({ time, kwh });
+      totalKwh += kwh;
+    }
+    days.push({ date, readings, totalKwh });
+  }
+
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  return { mprn, days };
+}
+
 export function parseEnergiaCSV(csvText: string): EnergyData {
   const lines = csvText.trim().split("\n");
   let mprn = "";

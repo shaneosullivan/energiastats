@@ -1716,7 +1716,7 @@ describe("runSimulation — forced discharge windows", () => {
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import { parseEnergiaCSV } from "../app/lib/parseCSV";
+import { parseCSV } from "../app/lib/parseCSV";
 
 describe("real CSV data regression", () => {
   const csvPath = join(
@@ -1727,7 +1727,7 @@ describe("real CSV data regression", () => {
     "EnergiaSample_April2024_Feb2026.csv",
   );
   const csvText = readFileSync(csvPath, "utf-8");
-  const data = parseEnergiaCSV(csvText);
+  const data = parseCSV(csvText);
   const tariff = DEFAULT_TARIFFS[0]; // Energia EV Smart Drive
 
   it("upgrading battery from 10kWh to 15kWh should not cost more", () => {
@@ -2050,7 +2050,7 @@ describe("identity — no changes should produce zero savings", () => {
       "EnergiaSample_April2024_Feb2026.csv",
     );
     const csvText = readFileSync(csvPath, "utf-8");
-    const csvData = parseEnergiaCSV(csvText);
+    const csvData = parseCSV(csvText);
     const realTariff = DEFAULT_TARIFFS[0];
 
     const settings: UserSettings = {
@@ -2075,5 +2075,154 @@ describe("identity — no changes should produce zero savings", () => {
         );
       }
     }
+  });
+});
+
+// ─── parseCSV tests ───
+
+describe("parseCSV", () => {
+  describe("format detection", () => {
+    it("detects Energia format (starts with #MPRN)", () => {
+      const csv = `#MPRN: 12345
+Date,00:00,00:30,01:00,01:30,02:00,02:30,03:00,03:30,04:00,04:30,05:00,05:30,06:00,06:30,07:00,07:30,08:00,08:30,09:00,09:30,10:00,10:30,11:00,11:30,12:00,12:30,13:00,13:30,14:00,14:30,15:00,15:30,16:00,16:30,17:00,17:30,18:00,18:30,19:00,19:30,20:00,20:30,21:00,21:30,22:00,22:30,23:00,23:30
+2024-04-01,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,3.9,4.0,4.1,4.2,4.3,4.4,4.5,4.6,4.7,4.8`;
+      const result = parseCSV(csv);
+      expect(result.mprn).toBe("12345");
+      expect(result.days.length).toBe(1);
+      expect(result.days[0].date).toBe("2024-04-01");
+      expect(result.days[0].readings[0].kwh).toBe(0.1);
+      expect(result.days[0].readings[47].kwh).toBe(4.8);
+    });
+
+    it("detects ESB format (starts with MPRN,)", () => {
+      const csv = `MPRN,Meter Serial Number,Read Value,Read Type,Read Date and End Time
+10005282085,000000000032257761,1.5,Active Import Interval (kWh),01-04-2024 00:00
+10005282085,000000000032257761,2.3,Active Import Interval (kWh),01-04-2024 00:30`;
+      const result = parseCSV(csv);
+      expect(result.mprn).toBe("10005282085");
+      expect(result.days.length).toBe(1);
+      expect(result.days[0].date).toBe("2024-04-01");
+      expect(result.days[0].readings[0].kwh).toBe(1.5);
+      expect(result.days[0].readings[1].kwh).toBe(2.3);
+    });
+  });
+
+  describe("ESB CSV parsing", () => {
+    it("skips export rows and only uses import rows", () => {
+      const csv = `MPRN,Meter Serial Number,Read Value,Read Type,Read Date and End Time
+10005282085,000000000032257761,0.5,Active Export Interval (kWh),01-04-2024 00:00
+10005282085,000000000032257761,1.5,Active Import Interval (kWh),01-04-2024 00:00
+10005282085,000000000032257761,0.3,Active Export Interval (kWh),01-04-2024 00:30
+10005282085,000000000032257761,2.0,Active Import Interval (kWh),01-04-2024 00:30`;
+      const result = parseCSV(csv);
+      expect(result.days[0].readings[0].kwh).toBe(1.5);
+      expect(result.days[0].readings[1].kwh).toBe(2.0);
+    });
+
+    it("fills missing time slots with 0", () => {
+      const csv = `MPRN,Meter Serial Number,Read Value,Read Type,Read Date and End Time
+10005282085,000000000032257761,1.5,Active Import Interval (kWh),01-04-2024 12:00`;
+      const result = parseCSV(csv);
+      expect(result.days[0].readings.length).toBe(48);
+      // 12:00 is index 24
+      expect(result.days[0].readings[24].kwh).toBe(1.5);
+      expect(result.days[0].readings[0].kwh).toBe(0);
+      expect(result.days[0].readings[23].kwh).toBe(0);
+    });
+
+    it("groups readings into separate days", () => {
+      const csv = `MPRN,Meter Serial Number,Read Value,Read Type,Read Date and End Time
+10005282085,000000000032257761,1.0,Active Import Interval (kWh),01-04-2024 00:00
+10005282085,000000000032257761,2.0,Active Import Interval (kWh),02-04-2024 00:00`;
+      const result = parseCSV(csv);
+      expect(result.days.length).toBe(2);
+      expect(result.days[0].date).toBe("2024-04-01");
+      expect(result.days[1].date).toBe("2024-04-02");
+    });
+
+    it("sorts days chronologically", () => {
+      const csv = `MPRN,Meter Serial Number,Read Value,Read Type,Read Date and End Time
+10005282085,000000000032257761,2.0,Active Import Interval (kWh),05-04-2024 00:00
+10005282085,000000000032257761,1.0,Active Import Interval (kWh),01-04-2024 00:00
+10005282085,000000000032257761,1.5,Active Import Interval (kWh),03-04-2024 00:00`;
+      const result = parseCSV(csv);
+      expect(result.days[0].date).toBe("2024-04-01");
+      expect(result.days[1].date).toBe("2024-04-03");
+      expect(result.days[2].date).toBe("2024-04-05");
+    });
+
+    it("calculates totalKwh correctly", () => {
+      const csv = `MPRN,Meter Serial Number,Read Value,Read Type,Read Date and End Time
+10005282085,000000000032257761,1.5,Active Import Interval (kWh),01-04-2024 00:00
+10005282085,000000000032257761,2.5,Active Import Interval (kWh),01-04-2024 00:30
+10005282085,000000000032257761,3.0,Active Import Interval (kWh),01-04-2024 01:00`;
+      const result = parseCSV(csv);
+      expect(result.days[0].totalKwh).toBe(7.0);
+    });
+  });
+
+  describe("real ESB sample file", () => {
+    const esbPath = join(
+      __dirname,
+      "..",
+      "public",
+      "sampledata",
+      "ESBSample_Mar2024_Mar2026.csv",
+    );
+    const esbCsv = readFileSync(esbPath, "utf-8");
+    const esbData = parseCSV(esbCsv);
+
+    it("parses MPRN from ESB file", () => {
+      expect(esbData.mprn).toBe("10005282085");
+    });
+
+    it("parses multiple days from ESB file", () => {
+      expect(esbData.days.length).toBeGreaterThan(100);
+    });
+
+    it("each day has 48 readings", () => {
+      for (const day of esbData.days) {
+        expect(day.readings.length).toBe(48);
+      }
+    });
+
+    it("days are sorted chronologically", () => {
+      for (let i = 1; i < esbData.days.length; i++) {
+        expect(esbData.days[i].date >= esbData.days[i - 1].date).toBe(true);
+      }
+    });
+
+    it("totalKwh matches sum of readings for each day", () => {
+      for (const day of esbData.days) {
+        const sum = day.readings.reduce((acc, r) => acc + r.kwh, 0);
+        expect(Math.abs(day.totalKwh - sum)).toBeLessThan(0.0001);
+      }
+    });
+
+    it("produces same structure as Energia parser", () => {
+      const energiaPath = join(
+        __dirname,
+        "..",
+        "public",
+        "sampledata",
+        "EnergiaSample_April2024_Feb2026.csv",
+      );
+      const energiaCsv = readFileSync(energiaPath, "utf-8");
+      const energiaData = parseCSV(energiaCsv);
+
+      // Both should have same MPRN since they're the same meter
+      expect(esbData.mprn).toBe(energiaData.mprn);
+
+      // Both should have similar structure - pick a day that exists in both
+      const esbDay = esbData.days.find((d) => d.date === "2024-04-15");
+      const energiaDay = energiaData.days.find((d) => d.date === "2024-04-15");
+      if (esbDay && energiaDay) {
+        expect(esbDay.readings.length).toBe(energiaDay.readings.length);
+        // Time slots should match
+        for (let i = 0; i < 48; i++) {
+          expect(esbDay.readings[i].time).toBe(energiaDay.readings[i].time);
+        }
+      }
+    });
   });
 });
